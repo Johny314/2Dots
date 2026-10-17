@@ -8,7 +8,10 @@
 - `pnpm i` — установка
 - `pnpm dev` — запуск приложения; `pnpm dev:mock` — UI на моках (`?mock=1`), `pnpm dev:local` — лабиринт на одной клавиатуре (`?local=1`)
 - `pnpm typecheck` / `pnpm lint` / `pnpm test` / `pnpm test:e2e`
-- `pnpm bot --host 127.0.0.1` — бот-соперник
+- `pnpm bot --host 127.0.0.1 [--port N] [--rounds N]` — бот-соперник
+- `TWODOTS_PORT=N pnpm dev` — порт хоста (по умолчанию 47777, `0` — случайный): второй экземпляр на той же машине; гость вводит `127.0.0.1:N`
+- `UPDATE_SCREENSHOTS=1 pnpm test:e2e` — перезаписать скриншоты в `apps/desktop/e2e/screenshots/` (по умолчанию пишутся в gitignored `test-results/`)
+- `TWODOTS_E2E=1` — тестовые хуки renderer (`window.__twodots`, только для e2e)
 - `pnpm dist:mac` / `pnpm dist:win` — сборка
 - Electron скачивает бинарник при первом запуске; вручную: `node node_modules/electron/install.js`
 

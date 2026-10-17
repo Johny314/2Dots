@@ -60,7 +60,7 @@
 │        └─ src/ui/              меню, лобби, результаты (DOM + CSS)
 │           src/games/maze/      Canvas‑рендерер, ввод, туман войны
 ├─ tools/bot.ts                  бот‑игрок (BFS) для тестов в одиночку
-└─ .github/workflows/release.yml сборка mac + win
+└─ .github/workflows/          ci.yml (typecheck/lint/test), release.yml (сборка mac + win)
 ```
 
 ## Сетевая модель
@@ -84,26 +84,30 @@
 | `packages/core/src/registry.ts`                      | `GAMES`, `getGame(id)`, `DEFAULT_GAME_ID`                                                                                                                                                                                                                    |
 | `packages/core/src/rng.ts`                           | `Rng` (mulberry32): `next`, `int`, `pick`, `shuffle`                                                                                                                                                                                                         |
 | `packages/core/src/testing/fake-game.ts`             | `counterGame` — мини-игра для тестов сети                                                                                                                                                                                                                    |
-| `apps/desktop/src/shared/api.ts`                     | `DesktopApi` (мост `window.api`) и имена IPC-каналов                                                                                                                                                                                                         |
+| `apps/desktop/src/shared/api.ts`                     | `DesktopApi` (мост `window.api`; `hostStart(name)` — с Фазы 2) и имена IPC-каналов                                                                                                                                                                                                         |
 | `packages/net/src/index.ts`                          | `startHostServer(options) → HostServerHandle`, `publishHost(name, port)`, `findHosts(timeoutMs)`                                                                                                                                                             |
 | `apps/desktop/src/renderer/src/games/local-entry.ts` | `startLocalMode(root)` — режим `?local=1` (владелец — трек E, вызывает `main.ts`)                                                                                                                                                                            |
 | `packages/net/src/client.ts`                         | интерфейс `GameClient`: подключение, ready/select/input/rematch, события `lobby/start/state/end/aborted/error/disconnect`                                                                                                                                    |
-| `apps/desktop/src/renderer/src/games/types.ts`       | `MountGameView` — контракт рендерера мини-игры; реестр `GAME_VIEWS` в `games/index.ts`                                                                                                                                                                       |
+| `apps/desktop/src/renderer/src/games/types.ts`       | `MountGameView` — контракт рендерера мини-игры: `mount(canvas, { you, names, match, onInput })` (имена из лобби и счёт матча для HUD — с Фазы 2); реестр `GAME_VIEWS` в `games/index.ts` |
 
 Ключевые решения:
 
 - `MazeState` содержит `seed`, `config` и сгенерированный `maze` — сервер рассылает state **целиком** каждый тик (~2–3 КБ × 30 Гц, для LAN пустяк). Это проще, чем собирать статику и динамику отдельно.
 - `MazeState.result` заполняется внутри `tick`; `result(state)` его просто возвращает.
 - Пакеты `@2dots/core` и `@2dots/net` экспортируют исходники TS; `@2dots/net/client` — только браузерная часть (без Node API).
+- «Ещё раз» (`rematch`) сервер трактует как `ready: true`: UI сразу показывает игрока готовым.
+- Renderer не дублирует логику лабиринта: локальный режим крутит `mazeGame.init/tick`, туман — `maze.visibleCells` из core.
 
 ## IPC (preload → `window.api`)
 
 ```ts
-hostStart(): Promise<{ port: number; ips: string[] }>
+hostStart(name: string): Promise<{ port: number; ips: string[] }> // name — имя игрока для mDNS
 hostStop(): Promise<void>
 discoverHosts(): Promise<{ name: string; ip: string; port: number }[]>
-getVersion(): string
+getVersion(): string // версия из apps/desktop/package.json (не Electron)
 ```
+
+Переменные окружения main-процесса: `TWODOTS_PORT` — порт хоста (по умолчанию `DEFAULT_PORT` 47777, `0` — случайный; нужен для двух экземпляров на одной машине), `TWODOTS_MODE=mock|local` — режим renderer, `TWODOTS_E2E=1` — тестовые хуки renderer (`window.__twodots`).
 
 ## Платформенные особенности (обязательно в README)
 
