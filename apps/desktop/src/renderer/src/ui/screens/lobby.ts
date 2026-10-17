@@ -110,7 +110,7 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
     const mine = me();
     const ready = mine?.ready ?? false;
     const opponentHere = lobby.players.some((p) => p.id !== props.you && p.connected);
-    setButtonLabel(readyBtn, ready ? 'Не готов' : 'Готов');
+    setButtonLabel(readyBtn, ready ? 'Отменить готовность' : 'Готов');
     readyBtn.setAttribute('aria-pressed', ready ? 'true' : 'false');
     readyBtn.classList.toggle('is-on', ready);
     readyHint.textContent = !opponentHere

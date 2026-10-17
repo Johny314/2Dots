@@ -61,7 +61,6 @@ body {
 @keyframes screen-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 
@@ -138,10 +137,10 @@ kbd {
   border-radius: 6px;
   border: 1px solid currentColor;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 /* ---------- айдентика: две точки ---------- */
@@ -441,7 +440,7 @@ kbd {
   right: 0;
   text-align: center;
   font-size: 13px;
-  color: color-mix(in srgb, var(--muted) 75%, transparent);
+  color: var(--muted);
 }
 
 /* ---------- ожидание хоста ---------- */
@@ -938,5 +937,31 @@ kbd {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* «Уменьшить прозрачность»: без размытия, плотные подложки */
+@media (prefers-reduced-transparency: reduce) {
+  .panel,
+  .overlay {
+    backdrop-filter: none;
+  }
+  .panel {
+    background: var(--bg-elev);
+  }
+  .overlay {
+    background: rgba(14, 15, 26, 0.95);
+  }
+}
+
+/* «Увеличить контраст» */
+@media (prefers-contrast: more) {
+  :root {
+    --muted: #c4c6dc;
+    --line: rgba(232, 233, 243, 0.3);
+    --line-strong: rgba(232, 233, 243, 0.5);
+  }
+  kbd {
+    opacity: 1;
   }
 }

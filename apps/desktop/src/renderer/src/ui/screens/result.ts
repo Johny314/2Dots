@@ -20,7 +20,7 @@ export function resultScreen(props: ResultProps): Screen {
   let headline: string;
   let tone: string;
   if (matchWinner) {
-    headline = matchWinner === you ? 'Матч выигран!' : `Матч выиграл(а) ${names[matchWinner]}`;
+    headline = matchWinner === you ? 'Матч выигран!' : `Победа в матче: ${names[matchWinner]}`;
     tone = matchWinner === you ? 'win' : 'lose';
   } else if (summary.winner === 'draw') {
     headline = 'Ничья';

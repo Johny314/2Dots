@@ -25,7 +25,10 @@ async function launch(mode: 'mock' | null): Promise<{ app: ElectronApplication; 
   return { app, win };
 }
 
-const shot = (win: Page, name: string) => win.screenshot({ path: join(shots, `${name}.png`) });
+async function shot(win: Page, name: string): Promise<void> {
+  await win.waitForTimeout(300); // дождаться появления экрана (fade-in)
+  await win.screenshot({ path: join(shots, `${name}.png`) });
+}
 const screen = (win: Page, id: string) => win.getByTestId(`screen-${id}`);
 
 test('мок: хост — главное → ожидание → лобби → отсчёт → игра → результат → ещё раз', async () => {
@@ -129,7 +132,7 @@ test('мок: гость — присоединение, ошибки подкл
   // обрыв соединения → экран ошибки
   await win.evaluate(() => {
     (
-      window as unknown as { __twodotsMock: { dropConnection(): void } }
+      globalThis as unknown as { __twodotsMock: { dropConnection(): void } }
     ).__twodotsMock.dropConnection();
   });
   await expect(screen(win, 'error')).toBeVisible();
@@ -157,7 +160,7 @@ test('мок: соперник отключился во время раунда
 
   await win.evaluate(() => {
     (
-      window as unknown as { __twodotsMock: { opponentLeave(): void } }
+      globalThis as unknown as { __twodotsMock: { opponentLeave(): void } }
     ).__twodotsMock.opponentLeave();
   });
   await expect(screen(win, 'lobby')).toBeVisible();
