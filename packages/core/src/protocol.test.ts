@@ -19,6 +19,7 @@ describe('protocol', () => {
   it('разбирает сообщения сервера', () => {
     const msg = { t: 'end', result: { winner: 'p1' }, match: { p1: 1, p2: 0 }, matchWinner: null };
     expect(parseServerMsg(JSON.stringify(msg))).toEqual(msg);
+    expect(parseServerMsg('{"t":"aborted","reason":"disconnect"}')).not.toBeNull();
     expect(parseServerMsg('{"t":"welcome","v":1,"you":"p3"}')).toBeNull();
   });
 });

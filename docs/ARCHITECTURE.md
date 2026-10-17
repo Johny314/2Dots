@@ -50,15 +50,15 @@
 │  └─ net/                       сеть (Node + браузер)
 │     └─ src/
 │        ├─ host-server.ts       ws‑сервер: лобби + игровой цикл (любой MiniGame)
-│        ├─ game-client.ts       клиент для renderer (браузерный WebSocket)
+│        ├─ client.ts            GameClient для renderer (браузерный WebSocket)
 │        └─ discovery.ts         mDNS публикация/поиск
 ├─ apps/desktop/                 Electron
 │  └─ src/
 │     ├─ main/                   окно, запуск/остановка хоста, IPC
 │     ├─ preload/                безопасный мост window.api
 │     └─ renderer/
-│        ├─ ui/                  меню, лобби, результаты (DOM + CSS)
-│        └─ games/maze/          Canvas‑рендерер, ввод, туман войны
+│        └─ src/ui/              меню, лобби, результаты (DOM + CSS)
+│           src/games/maze/      Canvas‑рендерер, ввод, туман войны
 ├─ tools/bot.ts                  бот‑игрок (BFS) для тестов в одиночку
 └─ .github/workflows/release.yml сборка mac + win
 ```
@@ -76,15 +76,17 @@
 
 Источник истины — код, а не этот документ. Меняются только отдельной задачей.
 
-| Файл                                     | Что внутри                                                                                                                                                                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/core/src/minigame.ts`          | `PlayerId` (`p1` — хост, `p2` — гость), интерфейс `MiniGame<Config, State, Input, Result>`: `defaultConfig`, `init(seed, players, config)`, `parseInput(raw)` (валидация ввода из сети), `applyInput`, `tick(state, dtMs)` (мутируют state), `result(state)` |
-| `packages/core/src/protocol.ts`          | zod-схемы `ClientMsg` (`hello`, `ready`, `select`, `input`, `rematch`) и `ServerMsg` (`welcome`, `lobby`, `start`, `state`, `end`, `error`), `parseClientMsg/parseServerMsg`, `PROTOCOL_VERSION`, `DEFAULT_PORT = 47777`, `MATCH_WINS = 3`                   |
-| `packages/core/src/games/maze/types.ts`  | `Dir`, `WALL` (битмаска up=1 right=2 down=4 left=8), `MazeConfig`, `MazeInput`, `Maze`, `MazePlayer`, `MazeState`, `MazeResult`                                                                                                                              |
-| `packages/core/src/registry.ts`          | `GAMES`, `getGame(id)`, `DEFAULT_GAME_ID`                                                                                                                                                                                                                    |
-| `packages/core/src/rng.ts`               | `Rng` (mulberry32): `next`, `int`, `pick`, `shuffle`                                                                                                                                                                                                         |
-| `packages/core/src/testing/fake-game.ts` | `counterGame` — мини-игра для тестов сети                                                                                                                                                                                                                    |
-| `apps/desktop/src/shared/api.ts`         | `DesktopApi` (мост `window.api`) и имена IPC-каналов                                                                                                                                                                                                         |
+| Файл                                           | Что внутри                                                                                                                                                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/core/src/minigame.ts`                | `PlayerId` (`p1` — хост, `p2` — гость), интерфейс `MiniGame<Config, State, Input, Result>`: `defaultConfig`, `init(seed, players, config)`, `parseInput(raw)` (валидация ввода из сети), `applyInput`, `tick(state, dtMs)` (мутируют state), `result(state)` |
+| `packages/core/src/protocol.ts`                | zod-схемы `ClientMsg` (`hello`, `ready`, `select`, `input`, `rematch`) и `ServerMsg` (`welcome`, `lobby`, `start`, `state`, `end`, `error`), `parseClientMsg/parseServerMsg`, `PROTOCOL_VERSION`, `DEFAULT_PORT = 47777`, `MATCH_WINS = 3`                   |
+| `packages/core/src/games/maze/types.ts`        | `Dir`, `WALL` (битмаска up=1 right=2 down=4 left=8), `MazeConfig`, `MazeInput`, `Maze`, `MazePlayer`, `MazeState`, `MazeResult`                                                                                                                              |
+| `packages/core/src/registry.ts`                | `GAMES`, `getGame(id)`, `DEFAULT_GAME_ID`                                                                                                                                                                                                                    |
+| `packages/core/src/rng.ts`                     | `Rng` (mulberry32): `next`, `int`, `pick`, `shuffle`                                                                                                                                                                                                         |
+| `packages/core/src/testing/fake-game.ts`       | `counterGame` — мини-игра для тестов сети                                                                                                                                                                                                                    |
+| `apps/desktop/src/shared/api.ts`               | `DesktopApi` (мост `window.api`) и имена IPC-каналов                                                                                                                                                                                                         |
+| `packages/net/src/client.ts`                   | интерфейс `GameClient`: подключение, ready/select/input/rematch, события `lobby/start/state/end/aborted/error/disconnect`                                                                                                                                    |
+| `apps/desktop/src/renderer/src/games/types.ts` | `MountGameView` — контракт рендерера мини-игры; реестр `GAME_VIEWS` в `games/index.ts`                                                                                                                                                                       |
 
 Ключевые решения:
 

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 export const PROTOCOL_VERSION = 1;
+
+// Переподключения нет: обрыв во время раунда → 'aborted' оставшемуся, раунд не засчитан,
+// слот освобождается, вернувшийся игрок подключается заново через hello.
 export const DEFAULT_PORT = 47777;
 export const MDNS_SERVICE_TYPE = '2dots';
 
@@ -56,6 +59,8 @@ export const ServerMsgSchema = z.discriminatedUnion('t', [
     /** Победитель матча, если матч завершён. */
     matchWinner: PlayerIdSchema.nullable(),
   }),
+  /** Раунд прерван (игрок отключился) — оба возвращаются в лобби, раунд не засчитывается. */
+  z.object({ t: z.literal('aborted'), reason: z.enum(['disconnect']) }),
   z.object({ t: z.literal('error'), code: ErrorCodeSchema, message: z.string() }),
 ]);
 export type ServerMsg = z.infer<typeof ServerMsgSchema>;
