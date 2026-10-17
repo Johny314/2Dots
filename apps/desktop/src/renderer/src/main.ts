@@ -1,11 +1,13 @@
 import { createGameClient } from '@2dots/net/client';
 import { startLocalMode } from './games/local-entry';
+import { installTestHooks } from './test-hooks';
 import { startApp } from './ui/app';
 import { createMockApi } from './ui/mock-api';
 import { MockGameClient } from './ui/mock-client';
 import './style.css';
 
-// Режимы запуска (см. CLAUDE.md): ?mock=1 — UI на моках (трек D), ?local=1 — лабиринт локально (трек E).
+// Режимы запуска (см. CLAUDE.md): ?mock=1 — UI на моках, ?local=1 — лабиринт локально,
+// ?e2e=1 — тестовые хуки (window.__twodots) для e2e.
 const params = new URLSearchParams(location.search);
 const mode = params.has('local') ? 'local' : params.has('mock') ? 'mock' : 'app';
 
@@ -37,6 +39,11 @@ if (mode === 'local') {
       footer,
     });
   } else {
-    startApp(root, { api: window.api, createClient: createGameClient, footer });
+    const e2e = params.has('e2e');
+    startApp(root, {
+      api: window.api,
+      createClient: () => (e2e ? installTestHooks(createGameClient()) : createGameClient()),
+      footer,
+    });
   }
 }

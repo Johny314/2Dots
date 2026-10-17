@@ -1,35 +1,11 @@
 // Проход всех экранов интерфейса на мок-клиенте (TWODOTS_MODE=mock → ?mock=1).
 // Скриншоты ключевых экранов сохраняются в e2e/screenshots/.
-import {
-  _electron as electron,
-  expect,
-  test,
-  type ElectronApplication,
-  type Page,
-} from '@playwright/test';
-import { join } from 'node:path';
-
-const main = join(import.meta.dirname, '../out/main/index.js');
-const shots = join(import.meta.dirname, 'screenshots');
+import { expect, test } from '@playwright/test';
+import { launch as launchApp, screen, shot } from './helpers';
 
 test.describe.configure({ timeout: 60_000 });
 
-async function launch(mode: 'mock' | null): Promise<{ app: ElectronApplication; win: Page }> {
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-  delete env.TWODOTS_MODE;
-  if (mode) env.TWODOTS_MODE = mode;
-  const app = await electron.launch({ args: [main], env });
-  const win = await app.firstWindow();
-  await win.waitForLoadState('domcontentloaded');
-  return { app, win };
-}
-
-async function shot(win: Page, name: string): Promise<void> {
-  await win.waitForTimeout(300); // дождаться появления экрана (fade-in)
-  await win.screenshot({ path: join(shots, `${name}.png`) });
-}
-const screen = (win: Page, id: string) => win.getByTestId(`screen-${id}`);
+const launch = (mode: 'mock' | null) => launchApp({ mode });
 
 test('мок: хост — главное → ожидание → лобби → отсчёт → игра → результат → ещё раз', async () => {
   const { app, win } = await launch('mock');
@@ -72,9 +48,10 @@ test('мок: хост — главное → ожидание → лобби �
   await win.waitForTimeout(800); // анимация полос
   await shot(win, '06-result');
 
+  // «Ещё раз» = сразу готов: второй шаг «Готов» не нужен.
   await win.getByTestId('again').click();
   await expect(screen(win, 'lobby')).toBeVisible();
-  await expect(win.getByTestId('ready-p1')).toHaveText('Не готов');
+  await expect(win.getByTestId('ready-p1')).toHaveText('Готов');
 
   // Esc — выход в главное меню
   await win.keyboard.press('Escape');
@@ -167,26 +144,5 @@ test('мок: соперник отключился во время раунда
   await expect(win.getByTestId('lobby-notice')).toContainText('Соперник отключился');
   await expect(win.getByTestId('player-p2')).toContainText('Ждём соперника');
   await shot(win, '12-lobby-aborted');
-  await app.close();
-});
-
-test('реальный режим: понятные ошибки, пока хост и клиент не готовы', async () => {
-  const { app, win } = await launch(null);
-  await expect(win.getByTestId('mode')).toContainText('режим: app');
-  await win.getByTestId('name-input').fill('Аня');
-
-  await win.getByTestId('create-game').click();
-  await expect(screen(win, 'error')).toBeVisible();
-  await expect(win.getByTestId('error-title')).toHaveText('Не удалось создать игру');
-  await expect(win.getByTestId('error-message')).not.toBeEmpty();
-  await shot(win, '13-error-host');
-
-  await win.getByTestId('error-home').click();
-  await win.getByTestId('join-game').click();
-  await expect(win.getByTestId('discover-status')).toContainText('Автопоиск недоступен');
-  await win.getByTestId('ip-input').fill('127.0.0.1');
-  await win.getByTestId('ip-connect').click();
-  await expect(screen(win, 'error')).toBeVisible();
-  await expect(win.getByTestId('error-title')).toHaveText('Сетевой клиент недоступен');
   await app.close();
 });

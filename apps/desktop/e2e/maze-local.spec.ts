@@ -1,8 +1,5 @@
-import { _electron as electron, expect, test, type Page } from '@playwright/test';
-import { join } from 'node:path';
-
-const main = join(import.meta.dirname, '../out/main/index.js');
-const screenshot = join(import.meta.dirname, 'screenshots/maze-local.png');
+import { expect, test, type Page } from '@playwright/test';
+import { launch, shotPath } from './helpers';
 
 // tsconfig.node без DOM-типов — минимальное описание canvas для evaluate.
 interface CanvasLike {
@@ -27,11 +24,7 @@ async function moveWithAny(win: Page, player: 'p1' | 'p2', keys: string[]): Prom
 }
 
 test('локальный режим: лабиринт отрисован, клавиши двигают точки', async () => {
-  const app = await electron.launch({
-    args: [main],
-    env: { ...process.env, TWODOTS_MODE: 'local' },
-  });
-  const win = await app.firstWindow();
+  const { app, win } = await launch({ mode: 'local' });
   await expect(win).toHaveTitle('2Dots');
 
   const canvas = win.getByTestId('maze-canvas');
@@ -57,7 +50,7 @@ test('локальный режим: лабиринт отрисован, кла
     )
     .toBeGreaterThan(5);
 
-  await win.screenshot({ path: screenshot });
+  await win.screenshot({ path: shotPath('maze-local') });
 
   // p1 стартует в (0,0) — вправо или вниз; p2 в противоположном углу — влево или вверх.
   await moveWithAny(win, 'p1', ['KeyD', 'KeyS']);
@@ -67,7 +60,7 @@ test('локальный режим: лабиринт отрисован, кла
   // Туман войны (F): снимок для визуальной проверки.
   await win.keyboard.press('KeyF');
   await win.waitForTimeout(200);
-  await win.screenshot({ path: join(import.meta.dirname, 'screenshots/maze-local-fog.png') });
+  await win.screenshot({ path: shotPath('maze-local-fog') });
 
   await app.close();
 });
