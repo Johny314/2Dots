@@ -1,19 +1,116 @@
 import type { MiniGame, PlayerId } from '../../minigame';
+import { generateMaze } from './generate';
+import { DELTA, DIRS, bfsDistances, canMove, visibleCells } from './grid';
 import type { Dir, Maze, MazeConfig, MazeInput, MazePlayer, MazeResult, MazeState } from './types';
 
 export * from './types';
+export { generateMaze } from './generate';
+export { bfsDistances, canMove, visibleCells } from './grid';
+/** Синоним visibleCells (название из docs/PLAN.md). */
+export const fogVisible = visibleCells;
 
-const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
+/** Максимальный путь игрока за один подшаг тика — защита от «проскока» навстречу. */
+const MAX_SUBSTEP_CELLS = 0.5;
 
-// ЗАГЛУШКА (Фаза 0): лабиринт без внутренних стен, движение и встреча не реализованы.
-// Реализация — трек A в docs/PLAN.md.
-export function generateMaze(_seed: number, width: number, height: number): Maze {
-  const walls = new Array<number>(width * height).fill(0);
-  return { width, height, walls };
+/** Стартовые клетки: p1 — левый верхний угол, p2 — правый нижний. */
+export function startCell(
+  maze: Pick<Maze, 'width' | 'height'>,
+  player: PlayerId,
+): [number, number] {
+  return player === 'p1' ? [0, 0] : [maze.width - 1, maze.height - 1];
 }
 
 function makePlayer(x: number, y: number, width: number): MazePlayer {
   return { x, y, dir: null, queued: null, moveProgress: 0, visited: [y * width + x], steps: 0 };
+}
+
+/**
+ * Направление на перекрёстке (в центре клетки): удерживаемое, если туда можно пройти;
+ * иначе продолжаем текущее (буфер поворота, как в Pac-Man); ничего не удерживается — стоп.
+ */
+function chooseDir(maze: Maze, p: MazePlayer): Dir | null {
+  if (p.queued === null) return null;
+  if (canMove(maze, p.x, p.y, p.queued)) return p.queued;
+  if (p.dir !== null && canMove(maze, p.x, p.y, p.dir)) return p.dir;
+  return null;
+}
+
+/** Продвигает игрока на budget клеток. Повороты — только в центре клетки. */
+function advance(maze: Maze, p: MazePlayer, budget: number): void {
+  let left = budget;
+  while (left > 0) {
+    if (p.moveProgress === 0) {
+      p.dir = chooseDir(maze, p);
+      if (p.dir === null) return;
+    }
+    const dir = p.dir as Dir;
+    const need = 1 - p.moveProgress;
+    if (left < need) {
+      p.moveProgress += left;
+      return;
+    }
+    left -= need;
+    const [dx, dy] = DELTA[dir];
+    p.x += dx;
+    p.y += dy;
+    p.moveProgress = 0;
+    p.steps++;
+    const cell = p.y * maze.width + p.x;
+    if (!p.visited.includes(cell)) p.visited.push(cell);
+  }
+}
+
+/** Встреча: одна клетка или соседние клетки без стены между ними. */
+function haveMet(maze: Maze, a: MazePlayer, b: MazePlayer): boolean {
+  if (a.x === b.x && a.y === b.y) return true;
+  return DIRS.some((dir) => {
+    const [dx, dy] = DELTA[dir];
+    return a.x + dx === b.x && a.y + dy === b.y && canMove(maze, a.x, a.y, dir);
+  });
+}
+
+function scoreOf(state: MazeState, player: PlayerId, distFromStart: number[]): number {
+  const p = state.players[player];
+  switch (state.config.scoring) {
+    case 'distinct':
+      return p.visited.length;
+    case 'steps':
+      return p.steps;
+    case 'bfs':
+      return Math.max(0, distFromStart[p.y * state.maze.width + p.x] as number);
+  }
+}
+
+function finish(state: MazeState, reason: MazeResult['reason']): MazeResult {
+  const { maze, players } = state;
+  const [x1, y1] = startCell(maze, 'p1');
+  const [x2, y2] = startCell(maze, 'p2');
+  const d1 = bfsDistances(maze, x1, y1);
+  const d2 = bfsDistances(maze, x2, y2);
+  const scores = { p1: scoreOf(state, 'p1', d1), p2: scoreOf(state, 'p2', d2) };
+  const winner: MazeResult['winner'] =
+    reason === 'timeout' || scores.p1 === scores.p2 ? 'draw' : scores.p1 > scores.p2 ? 'p1' : 'p2';
+
+  let meetCell: [number, number] | null = null;
+  if (reason === 'met') {
+    // Соседние клетки: точка встречи — та, что ближе к «середине» пути между стартами
+    // (|d1 − d2| меньше); при равенстве — клетка p1.
+    const a = players.p1;
+    const b = players.p2;
+    const imbalance = (p: MazePlayer) => {
+      const i = p.y * maze.width + p.x;
+      return Math.abs((d1[i] as number) - (d2[i] as number));
+    };
+    meetCell = imbalance(b) < imbalance(a) ? [b.x, b.y] : [a.x, a.y];
+  }
+
+  return {
+    winner,
+    reason,
+    scores,
+    meetCell,
+    pathLength: Math.max(0, d1[y2 * maze.width + x2] as number),
+  };
 }
 
 export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = {
@@ -32,16 +129,18 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
   }),
 
   init(seed, _players, config) {
-    const { width, height } = config;
+    const maze = generateMaze(seed, config.width, config.height, config.braid);
+    const [x1, y1] = startCell(maze, 'p1');
+    const [x2, y2] = startCell(maze, 'p2');
     return {
       seed,
       config,
-      maze: generateMaze(seed, width, height),
+      maze,
       tick: 0,
       elapsedMs: 0,
       players: {
-        p1: makePlayer(0, 0, width),
-        p2: makePlayer(width - 1, height - 1, width),
+        p1: makePlayer(x1, y1, maze.width),
+        p2: makePlayer(x2, y2, maze.width),
       },
       result: null,
     };
@@ -55,6 +154,7 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
   },
 
   applyInput(state, player: PlayerId, input) {
+    if (state.result) return;
     state.players[player].queued = input.dir;
   },
 
@@ -62,15 +162,23 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
     if (state.result) return;
     state.tick++;
     state.elapsedMs += dtMs;
-    if (state.elapsedMs >= state.config.timeLimitMs) {
-      state.result = {
-        winner: 'draw',
-        reason: 'timeout',
-        scores: { p1: 0, p2: 0 },
-        meetCell: null,
-        pathLength: 0,
-      };
+
+    // Движение дробится на подшаги ≤ MAX_SUBSTEP_CELLS, встреча проверяется после каждого:
+    // так игроки не проскочат друг сквозь друга даже при большом dt.
+    const budget = Math.max(0, (state.config.speedCellsPerSec * dtMs) / 1000);
+    const substeps = Math.max(1, Math.ceil(budget / MAX_SUBSTEP_CELLS));
+    const chunk = budget / substeps;
+    const { p1, p2 } = state.players;
+    for (let i = 0; i < substeps; i++) {
+      advance(state.maze, p1, chunk);
+      advance(state.maze, p2, chunk);
+      if (haveMet(state.maze, p1, p2)) {
+        state.result = finish(state, 'met');
+        return;
+      }
     }
+
+    if (state.elapsedMs >= state.config.timeLimitMs) state.result = finish(state, 'timeout');
   },
 
   result: (state) => state.result,
