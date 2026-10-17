@@ -5,9 +5,10 @@ name: release
 on:
   push:
     tags: ['v*']
-    # Проверочная сборка (без релиза) при изменении конфигурации упаковки на любой ветке.
-    # Нужна ещё и потому, что workflow_dispatch доступен только после попадания файла в main.
-    branches: ['**']
+    # Проверочная сборка (без релиза) при изменении конфигурации упаковки на ветках фаз (не main).
+    # Нужна, пока release.yml не попал в main: до этого workflow_dispatch недоступен.
+    # TODO: после слияния в main убрать этот триггер, оставив только теги v* и workflow_dispatch.
+    branches: ['phase*/**']
     paths:
       - .github/workflows/release.yml
       - apps/desktop/electron-builder.yml
@@ -65,6 +66,7 @@ jobs:
           pnpm typecheck
           pnpm lint
           pnpm test
+          pnpm --filter @2dots/desktop test
 
       - name: Build installers
         run: pnpm ${{ matrix.dist }}
