@@ -21,6 +21,8 @@ export interface GameScreen extends Screen {
 
 export function gameScreen(props: GameProps): GameScreen {
   const canvas = h('canvas', { class: 'game-canvas', testid: 'game-canvas' });
+  // Счёт, который рисует HUD на canvas, — для e2e (DOM-HUD при рендерере не показывается).
+  canvas.dataset.match = `${props.match.p1 ?? 0}:${props.match.p2 ?? 0}`;
   const title = getGame(props.gameId)?.title ?? props.gameId;
 
   const hud = h(

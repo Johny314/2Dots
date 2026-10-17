@@ -196,7 +196,12 @@ export class MazeRenderer {
       seen = new Set();
       for (const id of viewers) {
         const p = state.players[id];
-        for (const i of visibleCells(state.maze, p.x, p.y, radius)) visible.add(i);
+        // Клетка (x, y) после мгновенного разворота может быть ещё не достигнута (core ставит
+        // её сразу) — тогда видимость от неё только когда точка физически ближе к ней.
+        const here = cellIndex(state.maze, p.x, p.y);
+        if (p.moveProgress <= 0.5 || p.visited.includes(here)) {
+          for (const i of visibleCells(state.maze, p.x, p.y, radius)) visible.add(i);
+        }
         if (p.dir && p.moveProgress > 0.5) {
           const [dx, dy] = DELTA[p.dir];
           for (const i of visibleCells(state.maze, p.x + dx, p.y + dy, radius)) visible.add(i);
@@ -213,10 +218,16 @@ export class MazeRenderer {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     for (const id of PLAYER_IDS) {
-      const pts = [...this.trails[id].map(center), center(pos[id])];
+      const cells = [...this.trails[id], pos[id]];
+      const pts = cells.map(center);
+      // След соперника в тумане — только по видимым клеткам, иначе он просвечивает.
+      const hidden = visible !== null && !viewers.includes(id);
+      const shown = (p: Point) =>
+        visible?.has(cellIndex(state.maze, Math.round(p.x), Math.round(p.y))) ?? true;
       ctx.strokeStyle = COLORS[id];
       ctx.lineWidth = cell * 0.22;
       for (let i = 1; i < pts.length; i++) {
+        if (hidden && !(shown(cells[i - 1] as Point) && shown(cells[i] as Point))) continue;
         const a = pts[i - 1] as Point;
         const b = pts[i] as Point;
         ctx.globalAlpha = 0.05 + 0.35 * (i / pts.length);
@@ -240,7 +251,7 @@ export class MazeRenderer {
         for (let x = 0; x < width; x++) {
           const i = y * width + x;
           if (visible.has(i)) continue;
-          ctx.globalAlpha = seen.has(i) ? 0.6 : 0.96;
+          ctx.globalAlpha = seen.has(i) ? 0.6 : 1;
           ctx.fillRect(ox + x * cell - 0.5, oy + y * cell - 0.5, cell + 1, cell + 1);
         }
       }

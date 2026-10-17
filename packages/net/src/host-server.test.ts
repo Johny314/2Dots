@@ -172,6 +172,47 @@ describe('раунд и матч', () => {
     expect(end.match).toEqual({ p1: 0, p2: 1 });
   });
 
+  it('новый матч: лобби до start несёт счёт 0:0, а не итог прошлого матча', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const b = await join(port, 'B');
+    await startRound(a, b);
+    let end = (await playRound(a, b))[0];
+    while (!end.matchWinner) {
+      const started = Promise.all([waitFor(a, 'start'), waitFor(b, 'start')]);
+      a.rematch();
+      b.rematch();
+      await started;
+      end = (await playRound(a, b))[0];
+    }
+    expect(end.match).toEqual({ p1: MATCH_WINS, p2: 0 });
+
+    // Запоминаем все lobby у гостя до start нового матча.
+    const lobbies: { p1: number; p2: number }[] = [];
+    const off = b.on('lobby', (m) => lobbies.push({ ...m.match }));
+    const firstLobby = waitFor(b, 'lobby');
+    a.rematch();
+    // Первое «Новый матч» сразу обнуляет счёт в лобби.
+    expect((await firstLobby).match).toEqual({ p1: 0, p2: 0 });
+    const started = waitFor(b, 'start');
+    b.rematch();
+    await started;
+    off();
+    expect(lobbies.length).toBeGreaterThan(0);
+    expect(lobbies.at(-1)).toEqual({ p1: 0, p2: 0 });
+  });
+
+  it('лобби перед start: готовность сброшена', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const b = await join(port, 'B');
+    let last: { ready: boolean }[] = [];
+    const off = a.on('lobby', (m) => (last = m.players));
+    await startRound(a, b);
+    off();
+    expect(last.map((p) => p.ready)).toEqual([false, false]);
+  });
+
   it('maze из реестра: start и state с лабиринтом из того же seed', async () => {
     const { port } = await start({ games: undefined });
     const a = await join(port, 'A');

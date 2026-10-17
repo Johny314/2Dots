@@ -210,6 +210,9 @@ class HostServer {
     if (!slot || (this.phase !== 'lobby' && this.phase !== 'results')) return;
     if (slot.ready === ready) return;
     slot.ready = ready;
+    // Матч окончен: первое «Новый матч» сразу обнуляет счёт, чтобы лобби и HUD
+    // нового матча не показывали итог прошлого.
+    if (ready && this.matchOver) this.resetMatch();
     this.broadcastLobby();
     if (PLAYER_IDS.every((p) => this.slots[p]?.ready)) this.startRound();
   }
@@ -258,15 +261,17 @@ class HostServer {
   private startRound(): void {
     const game = this.games[this.gameId];
     if (!game) return;
+    if (PLAYER_IDS.some((p) => !this.slots[p])) return;
     if (this.matchOver) this.resetMatch();
     for (const p of PLAYER_IDS) {
-      const slot = this.slots[p];
-      if (!slot) return;
+      const slot = this.slots[p] as Slot;
       slot.ready = false;
       slot.lastSeq = -1;
       slot.pendingInput = null;
       slot.hasPendingInput = false;
     }
+    // Актуальные готовность (сброшена) и счёт матча — до start, его клиент берёт в HUD.
+    this.broadcastLobby();
     const seed = randomSeed();
     const config = game.defaultConfig();
     const state = game.init(seed, PLAYER_IDS, config);

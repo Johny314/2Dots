@@ -117,10 +117,17 @@ test('два экземпляра: создать → присоединитьс
     await shot(hw, 'phase2-match', 800);
 
     // Новый матч, и гость пропадает посреди раунда → у хоста лобби с сообщением.
+    // Первое «Новый матч» обнуляет счёт в лобби, и HUD первого раунда начинает с 0:0.
+    await setAutoplay(hw, false);
     await hw.getByTestId('again').click();
+    await expect(screen(hw, 'lobby')).toBeVisible();
+    await expect(hw.getByTestId('lobby-match')).toHaveAttribute('aria-label', 'Счёт матча 0:0');
     await gw.getByTestId('again').click();
     await waitGame(hw);
-    await setAutoplay(hw, false);
+    await waitGame(gw);
+    for (const win of [hw, gw]) {
+      await expect(win.getByTestId('game-canvas')).toHaveAttribute('data-match', '0:0');
+    }
     await guest.app.close();
     await expect(screen(hw, 'lobby')).toBeVisible({ timeout: 10_000 });
     await expect(hw.getByTestId('lobby-notice')).toContainText('Соперник отключился');
@@ -133,21 +140,23 @@ test('два экземпляра: создать → присоединитьс
 test('приложение против tools/bot.ts доигрывает раунд до встречи', async () => {
   const port = randomPort();
   const { app, win } = await launch({ env: { TWODOTS_PORT: String(port), TWODOTS_E2E: '1' } });
-  let bot: ChildProcess | null = null;
-  try {
-    await createGame(win, 'Аня');
-
-    let botLog = '';
-    const exited = new Promise<number | null>((resolve) => {
-      bot = spawn(
+  const bots: ChildProcess[] = [];
+  let botLog = '';
+  const spawnBot = () =>
+    new Promise<number | null>((resolve) => {
+      const bot = spawn(
         'pnpm',
         ['bot', '--host', '127.0.0.1', '--port', String(port), '--rounds', '1', '--quiet'],
         { cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' },
       );
+      bots.push(bot);
       bot.stdout?.on('data', (d: Buffer) => (botLog += d.toString()));
       bot.stderr?.on('data', (d: Buffer) => (botLog += d.toString()));
       bot.on('exit', (code) => resolve(code));
     });
+  try {
+    await createGame(win, 'Аня');
+    const exited = spawnBot();
 
     await expect(screen(win, 'lobby')).toBeVisible({ timeout: 20_000 });
     await expect(win.getByTestId('player-p2')).toContainText('Бот');
@@ -161,8 +170,23 @@ test('приложение против tools/bot.ts доигрывает рау
     await expect(win.getByTestId('result-pct-p2')).toHaveText(/^\d+% пути$/);
     expect(await exited, botLog).toBe(0);
     expect(botLog).toContain('раунд 1 окончен');
+
+    // Бот ушёл, пока хост смотрит результат, — сообщение прямо на экране результата.
+    await expect(win.getByTestId('result-notice')).toContainText('Соперник отключился');
+    await win.getByTestId('again').click();
+    await expect(screen(win, 'lobby')).toBeVisible();
+    await expect(win.getByTestId('lobby-notice')).toContainText('Соперник отключился');
+    // «Ещё раз» = готов; снимаем готовность, чтобы новый бот не запустил раунд сразу.
+    await expect(win.getByTestId('ready-p1')).toHaveText('Готов');
+    await win.getByTestId('ready').click();
+    await expect(win.getByTestId('ready-p1')).toHaveText('Не готов');
+
+    // Соперник вернулся — старое сообщение пропадает.
+    void spawnBot();
+    await expect(win.getByTestId('player-p2')).toContainText('Бот', { timeout: 20_000 });
+    await expect(win.getByTestId('lobby-notice')).toBeHidden();
   } finally {
-    (bot as ChildProcess | null)?.kill();
+    for (const bot of bots) bot.kill();
     await app.close();
   }
 });

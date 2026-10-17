@@ -28,6 +28,8 @@ mac:
   icon: build/icon.icns
   # Без Developer ID (и без поиска сертификатов в связке ключей); ad-hoc подпись — в build/adhoc-sign.mjs.
   identity: null
+  # Только нужные локали Electron (иначе в .app ~55 папок .lproj).
+  electronLanguages: [ru, en]
   artifactName: 2Dots-${version}-mac-${arch}.${ext}
   extendInfo:
     NSLocalNetworkUsageDescription: 2Dots ищет второго игрока в локальной сети.

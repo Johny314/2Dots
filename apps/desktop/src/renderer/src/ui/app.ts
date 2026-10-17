@@ -13,7 +13,7 @@ import { homeScreen } from './screens/home';
 import { hostWaitScreen, type HostWaitScreen } from './screens/host-wait';
 import { joinScreen, type JoinScreen } from './screens/join';
 import { lobbyScreen, type LobbyScreen } from './screens/lobby';
-import { resultScreen } from './screens/result';
+import { resultScreen, type ResultScreen } from './screens/result';
 
 type LobbyMsg = Extract<ServerMsg, { t: 'lobby' }>;
 
@@ -38,6 +38,12 @@ function withReady(lobby: LobbyMsg, ready: (p: LobbyPlayer) => boolean): LobbyMs
   return { ...lobby, players: lobby.players.map((p) => ({ ...p, ready: ready(p) })) };
 }
 
+const OPPONENT_LEFT = 'Соперник отключился';
+
+function hasOpponent(lobby: LobbyMsg | null, you: PlayerId | null): boolean {
+  return !!lobby?.players.some((p) => p.id !== you && p.connected);
+}
+
 const NETWORK_HINT = 'Проверьте, что оба ноутбука в одной Wi‑Fi сети, и попробуйте снова.';
 
 const SOFT_ERRORS: Partial<Record<ErrorCode, string>> = {
@@ -57,10 +63,11 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     hostWait: HostWaitScreen | null;
     lobby: LobbyScreen | null;
     game: GameScreen | null;
-  } = { hostWait: null, lobby: null, game: null };
+    result: ResultScreen | null;
+  } = { hostWait: null, lobby: null, game: null, result: null };
 
   function clearRefs(): void {
-    refs.hostWait = refs.lobby = refs.game = null;
+    refs.hostWait = refs.lobby = refs.game = refs.result = null;
   }
 
   function endSession(): void {
@@ -125,12 +132,13 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     s.offs.push(
       client.on('lobby', (msg) => {
         if (!live()) return;
+        const prev = s.lobby;
         s.lobby = msg;
-        onLobby(s);
+        onLobby(s, prev);
       }),
       client.on('start', (msg) => {
         if (!live() || !s.you) return;
-        // Сервер сбрасывает готовность на старте раунда, но lobby при этом не шлёт.
+        // Сервер шлёт lobby со сброшенной готовностью перед start; на всякий случай сбрасываем и тут.
         if (s.lobby) s.lobby = withReady(s.lobby, () => false);
         showGame(s, msg);
       }),
@@ -143,7 +151,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       }),
       client.on('aborted', () => {
         if (!live()) return;
-        showLobby(s, 'Соперник отключился — раунд не засчитан');
+        showLobby(s, `${OPPONENT_LEFT} — раунд не засчитан`);
       }),
       client.on('error', (msg) => {
         if (!live()) return;
@@ -159,8 +167,11 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
             'В этой игре уже двое игроков.',
             'Попросите хоста создать игру заново.',
           );
+        } else if (refs.lobby) {
+          refs.lobby.setNotice(SOFT_ERRORS[msg.code] ?? msg.message);
         } else {
-          refs.lobby?.setNotice(SOFT_ERRORS[msg.code] ?? msg.message);
+          // На экранах игры и результата показать негде — хотя бы в лог.
+          console.warn(`[2dots] ошибка хоста ${msg.code}: ${msg.message}`);
         }
       }),
       client.on('disconnect', ({ reason }) => {
@@ -251,9 +262,11 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
 
   // ---------- лобби / игра / результат ----------
 
-  function onLobby(s: Session): void {
+  function onLobby(s: Session, prev: LobbyMsg | null = null): void {
     const msg = s.lobby;
     if (!msg || !s.you) return;
+    const hadOpponent = hasOpponent(prev, s.you);
+    const opponentHere = hasOpponent(msg, s.you);
     switch (router.screenId) {
       case 'host-wait': {
         const opponent = msg.players.some((p) => p.id !== s.you && p.connected);
@@ -265,8 +278,14 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
         break;
       case 'lobby':
         refs.lobby?.update(msg);
+        // соперник (пере)подключился — старое «Соперник отключился…» больше не актуально
+        if (opponentHere && !hadOpponent) refs.lobby?.setNotice(null);
         break;
-      // на экранах игры и результата просто запоминаем: туда вернёмся по «Ещё раз»
+      case 'result':
+        // Соперник ушёл после конца раунда: aborted сервер не шлёт (раунд уже засчитан).
+        if (hadOpponent && !opponentHere) refs.result?.setNotice(OPPONENT_LEFT);
+        break;
+      // на экране игры просто запоминаем: туда вернёмся по «Ещё раз»
     }
   }
 
@@ -311,23 +330,24 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     if (s.lobby) s.lobby = { ...s.lobby, match: msg.match };
     clearRefs();
     const client = s.client;
-    router.show(
-      resultScreen({
-        you: s.you,
-        summary: summarizeResult(msg.result),
-        names: namesFrom(s.lobby?.players),
-        match: msg.match,
-        matchWinner: msg.matchWinner,
-        onAgain: () => {
-          // «Ещё раз» = сразу готов (сервер трактует rematch как ready: true).
-          client.rematch();
-          const you = s.you;
-          if (s.lobby) s.lobby = withReady(s.lobby, (p) => (p.id === you ? true : p.ready));
-          showLobby(s);
-        },
-        onMenu: goHome,
-      }),
-    );
+    const screen = resultScreen({
+      you: s.you,
+      summary: summarizeResult(msg.result),
+      names: namesFrom(s.lobby?.players),
+      match: msg.match,
+      matchWinner: msg.matchWinner,
+      onAgain: () => {
+        // «Ещё раз» = сразу готов (сервер трактует rematch как ready: true).
+        client.rematch();
+        const you = s.you;
+        if (s.lobby) s.lobby = withReady(s.lobby, (p) => (p.id === you ? true : p.ready));
+        showLobby(s, s.lobby && !hasOpponent(s.lobby, you) ? OPPONENT_LEFT : undefined);
+      },
+      onMenu: goHome,
+    });
+    refs.result = screen;
+    router.show(screen);
+    if (s.lobby && !hasOpponent(s.lobby, s.you)) screen.setNotice(OPPONENT_LEFT);
   }
 
   goHome();

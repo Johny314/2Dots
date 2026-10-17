@@ -14,7 +14,11 @@ export interface ResultProps {
   onMenu(): void;
 }
 
-export function resultScreen(props: ResultProps): Screen {
+export interface ResultScreen extends Screen {
+  setNotice(text: string | null): void;
+}
+
+export function resultScreen(props: ResultProps): ResultScreen {
   const { summary, names, you, matchWinner } = props;
 
   let headline: string;
@@ -84,12 +88,15 @@ export function resultScreen(props: ResultProps): Screen {
     onClick: props.onAgain,
   });
 
+  const notice = h('p', { class: 'notice', role: 'status', testid: 'result-notice', hidden: true });
+
   const el = h(
     'main',
     { class: `result centered tone-${tone}` },
     dotsLogo('sm'),
     h('h2', { class: 'heading result-headline', testid: 'result-headline' }, headline),
     reason ? h('p', { class: 'muted' }, reason) : null,
+    notice,
     h('section', { class: 'panel stack' }, ...rows, unknown),
     h(
       'div',
@@ -120,5 +127,9 @@ export function resultScreen(props: ResultProps): Screen {
     enter: props.onAgain,
     escape: props.onMenu,
     mounted: () => againBtn.focus(),
+    setNotice: (text) => {
+      notice.textContent = text ?? '';
+      notice.hidden = !text;
+    },
   };
 }

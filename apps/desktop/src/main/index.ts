@@ -32,8 +32,9 @@ function createWindow(): void {
   // TWODOTS_MODE=mock|local — режим отладки renderer (см. CLAUDE.md).
   const mode = process.env.TWODOTS_MODE;
   const query: Record<string, string> = mode ? { [mode]: '1' } : {};
-  // TWODOTS_E2E=1 — тестовые хуки renderer (window.__twodots), только для e2e.
-  if (process.env.TWODOTS_E2E === '1') query.e2e = '1';
+  // TWODOTS_E2E=1 — тестовые хуки renderer (window.__twodots, в т.ч. autoplay), только для e2e.
+  // В упакованном приложении не включаются: иначе autoplay стал бы доступным читом.
+  if (process.env.TWODOTS_E2E === '1' && !app.isPackaged) query.e2e = '1';
   if (process.env.ELECTRON_RENDERER_URL) {
     const url = new URL(process.env.ELECTRON_RENDERER_URL);
     for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
