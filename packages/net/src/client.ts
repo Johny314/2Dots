@@ -37,6 +37,4 @@ export interface GameClient {
   ): () => void;
 }
 
-export function createGameClient(): GameClient {
-  throw new Error('не реализовано (трек B)');
-}
+export { createGameClient } from './game-client';
