@@ -5,6 +5,14 @@ name: release
 on:
   push:
     tags: ['v*']
+    # Проверочная сборка (без релиза) при изменении конфигурации упаковки на любой ветке.
+    # Нужна ещё и потому, что workflow_dispatch доступен только после попадания файла в main.
+    branches: ['**']
+    paths:
+      - .github/workflows/release.yml
+      - apps/desktop/electron-builder.yml
+      - apps/desktop/electron.vite.config.ts
+      - apps/desktop/build/**
   workflow_dispatch:
 
 permissions:
