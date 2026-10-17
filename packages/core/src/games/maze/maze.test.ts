@@ -294,12 +294,62 @@ describe('mazeGame: движение', () => {
   it('visited без повторов, steps считает возвраты', () => {
     const s = stateWith(generateMaze(1, 20, 1));
     mazeGame.applyInput(s, 'p1', { dir: 'right' });
-    runTicks(s, 9); // 2.1 клетки → 3 после доезда
-    mazeGame.applyInput(s, 'p1', { dir: 'left' });
+    runTicks(s, 9); // 2.1 клетки: x = 2, переход к 3 только начат
+    mazeGame.applyInput(s, 'p1', { dir: 'left' }); // мгновенный разворот, 3 не достигнута
     runTicks(s, 60);
     expect(s.players.p1.x).toBe(0);
-    expect(s.players.p1.visited).toEqual([0, 1, 2, 3]);
-    expect(s.players.p1.steps).toBe(6);
+    expect(s.players.p1.visited).toEqual([0, 1, 2]);
+    // 2 вперёд + 3 возврата (возврат в клетку 2 после разворота тоже шаг).
+    expect(s.players.p1.steps).toBe(5);
+  });
+
+  it('мгновенный разворот посреди перехода: позиция сохраняется, клетка-цель меняется', () => {
+    // speed 3, dt 100 → 0.3 клетки за тик.
+    const s = stateWith(generateMaze(1, 20, 1), { speedCellsPerSec: 3 });
+    mazeGame.applyInput(s, 'p1', { dir: 'right' });
+    mazeGame.tick(s, 100);
+    expect(s.players.p1).toMatchObject({ x: 0, dir: 'right' });
+    expect(s.players.p1.moveProgress).toBeCloseTo(0.3);
+    mazeGame.applyInput(s, 'p1', { dir: 'left' });
+    mazeGame.tick(s, 100);
+    // Разворот: теперь идём из (1,0) в (0,0); физически 0.3 − 0.3 = 0 → почти дома.
+    expect(s.players.p1).toMatchObject({ x: 1, dir: 'left' });
+    expect(s.players.p1.moveProgress).toBeCloseTo(1);
+    mazeGame.tick(s, 100);
+    expect(s.players.p1).toMatchObject({ x: 0, y: 0 });
+    expect(s.players.p1.visited).toEqual([0]);
+  });
+
+  it('разворот не ждёт центра клетки и детерминирован', () => {
+    const run = () => {
+      const s = stateWith(generateMaze(1, 20, 1), { speedCellsPerSec: 3 });
+      mazeGame.applyInput(s, 'p1', { dir: 'right' });
+      runTicks(s, 5, 100); // 1.5 клетки: x = 1, прогресс 0.5
+      mazeGame.applyInput(s, 'p1', { dir: 'left' });
+      mazeGame.tick(s, 100);
+      return s;
+    };
+    const s = run();
+    expect(s.players.p1).toMatchObject({ x: 2, dir: 'left' });
+    expect(s.players.p1.moveProgress).toBeCloseTo(0.8);
+    expect(run()).toEqual(s);
+  });
+
+  it('разворот перед встречей: встреча и счёт считаются по новой клетке', () => {
+    // Коридор 8×1: p1 идёт вправо, разворачивается; p2 идёт навстречу.
+    const s = stateWith(generateMaze(1, 8, 1), { speedCellsPerSec: 3 });
+    mazeGame.applyInput(s, 'p1', { dir: 'right' });
+    mazeGame.applyInput(s, 'p2', { dir: 'left' });
+    runTicks(s, 8, 100); // по 2.4 клетки: p1 x = 2, p2 x = 5
+    expect([s.players.p1.x, s.players.p2.x]).toEqual([2, 5]);
+    mazeGame.applyInput(s, 'p1', { dir: 'left' }); // разворот: p1 теперь «в» клетке 3
+    runTicks(s, 100, 100);
+    const r = mazeGame.result(s);
+    expect(r?.reason).toBe('met');
+    expect(s.players.p2.x - s.players.p1.x).toBeLessThanOrEqual(1);
+    const d1 = bfsDistances(s.maze, 0, 0);
+    const d2 = bfsDistances(s.maze, 7, 0);
+    expect(r?.scores).toEqual({ p1: d1[s.players.p1.x], p2: d2[s.players.p2.x] });
   });
 });
 
@@ -404,8 +454,8 @@ describe('mazeGame: встреча и счёт', () => {
     mazeGame.applyInput(s, 'p1', { dir: null });
     mazeGame.applyInput(s, 'p2', { dir: 'left' });
     runTicks(s, 300);
-    // p1: 3 вправо + 3 назад; p2: от 7 до 1 — 6 шагов.
-    expect(mazeGame.result(s)).toMatchObject({ winner: 'draw', scores: { p1: 6, p2: 6 } });
+    // p1: 2 вправо + разворот + 3 назад; p2: от 7 до 1 — 6 шагов.
+    expect(mazeGame.result(s)).toMatchObject({ winner: 'p2', scores: { p1: 5, p2: 6 } });
 
     const s2 = stateWith(generateMaze(1, 8, 1), { scoring: 'steps' });
     mazeGame.applyInput(s2, 'p1', { dir: 'right' });
@@ -414,7 +464,7 @@ describe('mazeGame: встреча и счёт', () => {
     runTicks(s2, 30);
     mazeGame.applyInput(s2, 'p1', { dir: 'right' });
     runTicks(s2, 300);
-    expect(mazeGame.result(s2)).toMatchObject({ winner: 'p1', scores: { p1: 12, p2: 0 } });
+    expect(mazeGame.result(s2)).toMatchObject({ winner: 'p1', scores: { p1: 11, p2: 0 } });
   });
 
   it('таймаут даёт ничью со счётом', () => {

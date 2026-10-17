@@ -1,11 +1,11 @@
 import type { MiniGame, PlayerId } from '../../minigame';
 import { generateMaze } from './generate';
-import { DELTA, DIRS, bfsDistances, canMove, visibleCells } from './grid';
+import { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, visibleCells } from './grid';
 import type { Dir, Maze, MazeConfig, MazeInput, MazePlayer, MazeResult, MazeState } from './types';
 
 export * from './types';
 export { generateMaze } from './generate';
-export { bfsDistances, canMove, visibleCells } from './grid';
+export { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, inBounds, visibleCells } from './grid';
 /** Синоним visibleCells (название из docs/PLAN.md). */
 export const fogVisible = visibleCells;
 
@@ -35,8 +35,23 @@ function chooseDir(maze: Maze, p: MazePlayer): Dir | null {
   return null;
 }
 
-/** Продвигает игрока на budget клеток. Повороты — только в центре клетки. */
+/**
+ * Мгновенный разворот: удерживается направление, противоположное движению, посреди перехода
+ * A → B. Игрок разворачивается на месте: теперь он идёт B → A с прогрессом 1 − moveProgress
+ * (физическая позиция не меняется). Клетка B ещё не достигнута — в visited и steps не попадает.
+ */
+function reverseIfOpposite(p: MazePlayer): void {
+  if (p.dir === null || p.moveProgress <= 0 || p.queued !== OPPOSITE[p.dir]) return;
+  const [dx, dy] = DELTA[p.dir];
+  p.x += dx;
+  p.y += dy;
+  p.dir = p.queued;
+  p.moveProgress = 1 - p.moveProgress;
+}
+
+/** Продвигает игрока на budget клеток. Повороты — в центре клетки, разворот — сразу. */
 function advance(maze: Maze, p: MazePlayer, budget: number): void {
+  reverseIfOpposite(p);
   let left = budget;
   while (left > 0) {
     if (p.moveProgress === 0) {
