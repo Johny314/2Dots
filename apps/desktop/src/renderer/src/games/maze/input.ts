@@ -37,6 +37,8 @@ export function createKeyInput(keymap: KeyMap, onChange: (dir: Dir | null) => vo
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (!Object.hasOwn(keymap, e.code)) return;
+    // Сочетания с Cmd/Ctrl/Alt (Cmd+W, Cmd+Q, Alt+Tab…) — системные, не ввод игры.
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     e.preventDefault();
     if (e.repeat && held.includes(e.code)) return;
     remove(e.code);
@@ -45,7 +47,8 @@ export function createKeyInput(keymap: KeyMap, onChange: (dir: Dir | null) => vo
   };
   const onKeyUp = (e: KeyboardEvent) => {
     if (!Object.hasOwn(keymap, e.code)) return;
-    e.preventDefault();
+    // Отпускание учитываем всегда (W, затем Cmd, затем отпустить W), но системные сочетания не трогаем.
+    if (!(e.metaKey || e.ctrlKey || e.altKey)) e.preventDefault();
     remove(e.code);
     emit();
   };
