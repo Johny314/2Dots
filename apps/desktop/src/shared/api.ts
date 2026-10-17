@@ -13,7 +13,8 @@ export interface DiscoveredHost {
 }
 
 export interface DesktopApi {
-  hostStart(): Promise<HostInfo>;
+  /** name — имя игрока: под ним хост виден в поиске по сети (mDNS). */
+  hostStart(name: string): Promise<HostInfo>;
   hostStop(): Promise<void>;
   discoverHosts(): Promise<DiscoveredHost[]>;
   getVersion(): string;

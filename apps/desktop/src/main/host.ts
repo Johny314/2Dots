@@ -54,8 +54,14 @@ export interface HostDeps {
   warn: (message: string, err: unknown) => void;
 }
 
+/** Имя для mDNS: имя игрока (как в протоколе — до 24 символов), иначе имя компьютера. */
+export function publishName(name: string, fallback: () => string): string {
+  return name.trim().slice(0, 24) || fallback();
+}
+
 export interface HostController {
-  hostStart(): Promise<HostInfo>;
+  /** name — имя игрока для mDNS-публикации. */
+  hostStart(name: string): Promise<HostInfo>;
   hostStop(): Promise<void>;
   discoverHosts(): Promise<DiscoveredHost[]>;
   isHosting(): boolean;
@@ -73,11 +79,11 @@ export function createHostController(deps: HostDeps): HostController {
   // Растёт при каждом hostStop: hostStart, начатый до остановки, не должен вернуть адрес мёртвого сервера.
   let generation = 0;
 
-  async function launch(): Promise<RunningHost> {
+  async function launch(name: string): Promise<RunningHost> {
     const server = await deps.startHostServer({ port: deps.port() });
     let unpublish: (() => void) | null = null;
     try {
-      unpublish = deps.publishHost(deps.displayName(), server.port);
+      unpublish = deps.publishHost(publishName(name, deps.displayName), server.port);
     } catch (err) {
       // mDNS опционален: без него второй игрок вводит IP вручную.
       deps.warn('[2dots] mDNS-публикация не удалась:', err);
@@ -107,13 +113,13 @@ export function createHostController(deps: HostDeps): HostController {
     if (current) await shutdown(current);
   }
 
-  async function hostStart(): Promise<HostInfo> {
+  async function hostStart(name: string): Promise<HostInfo> {
     const gen = generation;
     // Старт сразу после стопа ждёт, пока старый сервер освободит порт.
     while (stopping) await stopping.catch(() => undefined);
     if (gen !== generation) throw new Error('хост остановлен во время запуска');
     if (!running) {
-      starting ??= launch()
+      starting ??= launch(name)
         .then((host) => (running = host))
         .finally(() => {
           starting = null;

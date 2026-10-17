@@ -71,13 +71,13 @@ try {
   await win.screenshot({ path: shot });
   console.log(`smoke: скриншот ${shot}`);
 
-  const info = await win.evaluate(() => window.api.hostStart());
+  const info = await win.evaluate(() => window.api.hostStart('smoke'));
   console.log(`smoke: hostStart → ${JSON.stringify(info)}`);
   if (!Number.isInteger(info.port) || info.port <= 0) fail('hostStart вернул некорректный порт');
   if (info.ips.some((ip) => ip.startsWith('127.') || ip.startsWith('169.254.'))) {
     fail('hostStart вернул loopback/link-local адрес');
   }
-  const again = await win.evaluate(() => window.api.hostStart());
+  const again = await win.evaluate(() => window.api.hostStart('smoke'));
   if (again.port !== info.port) fail('повторный hostStart поднял другой сервер');
 
   await connect(`ws://127.0.0.1:${info.port}`);
@@ -99,7 +99,7 @@ try {
   console.log('smoke: hostStop — порт закрыт');
 
   // Выход при работающем хосте: before-quit должен остановить сервер и завершить процесс.
-  const relaunched = await win.evaluate(() => window.api.hostStart());
+  const relaunched = await win.evaluate(() => window.api.hostStart('smoke'));
   await app.close();
   const freed = await connect(`ws://127.0.0.1:${relaunched.port}`, 2000).then(
     () => false,

@@ -2,7 +2,13 @@ import type { NetworkInterfaceInfo } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PORT } from '@2dots/core';
 import type { HostServerHandle } from '@2dots/net';
-import { configuredPort, createHostController, localIPv4s, type HostDeps } from './host';
+import {
+  configuredPort,
+  createHostController,
+  localIPv4s,
+  publishName,
+  type HostDeps,
+} from './host';
 
 function v4(address: string, internal = false): NetworkInterfaceInfo {
   return {
@@ -115,16 +121,22 @@ function setup(overrides: Partial<HostDeps> = {}) {
 describe('hostStart / hostStop', () => {
   it('hostStart возвращает порт и IP, публикует mDNS', async () => {
     const { host, deps } = setup();
-    await expect(host.hostStart()).resolves.toEqual({ port: 40000, ips: ['192.168.1.10'] });
+    await expect(host.hostStart('')).resolves.toEqual({ port: 40000, ips: ['192.168.1.10'] });
     expect(deps.startHostServer).toHaveBeenCalledWith({ port: 0 });
     expect(deps.publishHost).toHaveBeenCalledWith('test', 40000);
     expect(host.isHosting()).toBe(true);
   });
 
+  it('mDNS-публикация идёт под именем игрока', async () => {
+    const { host, deps } = setup();
+    await host.hostStart('  Аня  ');
+    expect(deps.publishHost).toHaveBeenCalledWith('Аня', 40000);
+  });
+
   it('повторный и параллельный hostStart не поднимают второй сервер', async () => {
     const { host, deps } = setup();
-    const [a, b] = await Promise.all([host.hostStart(), host.hostStart()]);
-    const c = await host.hostStart();
+    const [a, b] = await Promise.all([host.hostStart(''), host.hostStart('')]);
+    const c = await host.hostStart('');
     expect(a).toEqual(b);
     expect(c).toEqual(a);
     expect(deps.startHostServer).toHaveBeenCalledTimes(1);
@@ -133,7 +145,7 @@ describe('hostStart / hostStop', () => {
   it('hostStop останавливает сервер и снимает публикацию; повторный вызов безопасен', async () => {
     const { host, servers, unpublish } = setup();
     await host.hostStop();
-    await host.hostStart();
+    await host.hostStart('');
     await host.hostStop();
     await host.hostStop();
     expect(servers[0]?.stop).toHaveBeenCalledTimes(1);
@@ -143,9 +155,9 @@ describe('hostStart / hostStop', () => {
 
   it('после hostStop можно снова поднять хост', async () => {
     const { host, deps } = setup();
-    await host.hostStart();
+    await host.hostStart('');
     await host.hostStop();
-    await expect(host.hostStart()).resolves.toMatchObject({ port: 40001 });
+    await expect(host.hostStart('')).resolves.toMatchObject({ port: 40001 });
     expect(deps.startHostServer).toHaveBeenCalledTimes(2);
   });
 
@@ -157,7 +169,7 @@ describe('hostStart / hostStop', () => {
       await gate.promise;
       return start(options);
     });
-    const starting = host.hostStart();
+    const starting = host.hostStart('');
     const stopping = host.hostStop();
     gate.resolve();
     await expect(starting).rejects.toThrow('остановлен');
@@ -170,7 +182,7 @@ describe('hostStart / hostStop', () => {
     const { host } = setup({
       startHostServer: vi.fn(async () => Promise.reject(new Error('EADDRINUSE'))),
     });
-    await expect(host.hostStart()).rejects.toThrow('EADDRINUSE');
+    await expect(host.hostStart('')).rejects.toThrow('EADDRINUSE');
     expect(host.isHosting()).toBe(false);
     await expect(host.hostStop()).resolves.toBeUndefined();
   });
@@ -181,7 +193,7 @@ describe('hostStart / hostStop', () => {
         throw new Error('no multicast');
       }),
     });
-    await expect(host.hostStart()).resolves.toMatchObject({ port: 40000 });
+    await expect(host.hostStart('')).resolves.toMatchObject({ port: 40000 });
     expect(deps.warn).toHaveBeenCalled();
     await host.hostStop();
   });
@@ -197,5 +209,13 @@ describe('discoverHosts', () => {
   it('ошибка mDNS превращается в пустой список', async () => {
     const { host } = setup({ findHosts: vi.fn(async () => Promise.reject(new Error('boom'))) });
     await expect(host.discoverHosts()).resolves.toEqual([]);
+  });
+});
+
+describe('publishName', () => {
+  it('имя игрока обрезается до 24 символов, пустое — имя компьютера', () => {
+    expect(publishName('Женя', () => 'mac')).toBe('Женя');
+    expect(publishName('   ', () => 'mac')).toBe('mac');
+    expect(publishName('x'.repeat(30), () => 'mac')).toBe('x'.repeat(24));
   });
 });

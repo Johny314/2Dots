@@ -1,4 +1,4 @@
-// Мок window.api для ?mock=1: hostStart/discoverHosts в main-процессе пока не реализованы (трек C).
+// Мок window.api для ?mock=1: UI без настоящего сервера и mDNS.
 import { DEFAULT_PORT } from '@2dots/core';
 import type { DesktopApi } from '../../../shared/api';
 import { MOCK_FULL_HOST, MOCK_UNREACHABLE_HOST } from './mock-client';
@@ -7,7 +7,7 @@ const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export function createMockApi(version: string): DesktopApi {
   return {
-    async hostStart() {
+    async hostStart(_name: string) {
       await wait(300);
       return { port: DEFAULT_PORT, ips: ['192.168.1.42'] };
     },

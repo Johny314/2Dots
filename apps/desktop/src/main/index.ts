@@ -32,6 +32,8 @@ function createWindow(): void {
   // TWODOTS_MODE=mock|local — режим отладки renderer (см. CLAUDE.md).
   const mode = process.env.TWODOTS_MODE;
   const query: Record<string, string> = mode ? { [mode]: '1' } : {};
+  // TWODOTS_E2E=1 — тестовые хуки renderer (window.__twodots), только для e2e.
+  if (process.env.TWODOTS_E2E === '1') query.e2e = '1';
   if (process.env.ELECTRON_RENDERER_URL) {
     const url = new URL(process.env.ELECTRON_RENDERER_URL);
     for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
@@ -43,9 +45,11 @@ function createWindow(): void {
 
 function registerIpc(): void {
   ipcMain.on(IPC.getVersion, (event) => {
-    event.returnValue = app.getVersion();
+    event.returnValue = __APP_VERSION__;
   });
-  ipcMain.handle(IPC.hostStart, () => hostStart());
+  ipcMain.handle(IPC.hostStart, (_event, name: unknown) =>
+    hostStart(typeof name === 'string' ? name : ''),
+  );
   ipcMain.handle(IPC.hostStop, () => hostStop());
   ipcMain.handle(IPC.discoverHosts, () => discoverHosts());
 }

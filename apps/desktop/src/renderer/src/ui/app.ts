@@ -1,5 +1,5 @@
 // Контроллер экранов: связывает window.api (хост/поиск), GameClient и экраны.
-import type { ErrorCode, PlayerId, ServerMsg } from '@2dots/core';
+import type { ErrorCode, LobbyPlayer, PlayerId, ServerMsg } from '@2dots/core';
 import type { GameClient } from '@2dots/net/client';
 import type { DesktopApi, HostInfo } from '../../../shared/api';
 import { errorMessage } from './dom';
@@ -32,6 +32,10 @@ interface Session {
   lobby: LobbyMsg | null;
   closed: boolean;
   offs: (() => void)[];
+}
+
+function withReady(lobby: LobbyMsg, ready: (p: LobbyPlayer) => boolean): LobbyMsg {
+  return { ...lobby, players: lobby.players.map((p) => ({ ...p, ready: ready(p) })) };
 }
 
 const NETWORK_HINT = 'Проверьте, что оба ноутбука в одной Wi‑Fi сети, и попробуйте снова.';
@@ -126,6 +130,8 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       }),
       client.on('start', (msg) => {
         if (!live() || !s.you) return;
+        // Сервер сбрасывает готовность на старте раунда, но lobby при этом не шлёт.
+        if (s.lobby) s.lobby = withReady(s.lobby, () => false);
         showGame(s, msg);
       }),
       client.on('state', (msg) => {
@@ -174,7 +180,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     busy = true;
     let info: HostInfo;
     try {
-      info = await deps.api.hostStart();
+      info = await deps.api.hostStart(n);
     } catch (err) {
       fail(
         'Не удалось создать игру',
@@ -301,6 +307,8 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
 
   function showResult(s: Session, msg: Extract<ServerMsg, { t: 'end' }>): void {
     if (!s.you) return;
+    // Счёт матча из end — lobby с ним придёт только после следующего изменения.
+    if (s.lobby) s.lobby = { ...s.lobby, match: msg.match };
     clearRefs();
     const client = s.client;
     router.show(
@@ -311,7 +319,10 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
         match: msg.match,
         matchWinner: msg.matchWinner,
         onAgain: () => {
+          // «Ещё раз» = сразу готов (сервер трактует rematch как ready: true).
           client.rematch();
+          const you = s.you;
+          if (s.lobby) s.lobby = withReady(s.lobby, (p) => (p.id === you ? true : p.ready));
           showLobby(s);
         },
         onMenu: goHome,

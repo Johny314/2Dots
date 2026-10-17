@@ -161,8 +161,8 @@ export class MockGameClient implements GameClient {
       this.match = { p1: 0, p2: 0 };
       this.matchOver = false;
     }
-    for (const p of this.players) p.ready = false;
-    this.emitLobby();
+    // Как настоящий сервер: «Ещё раз» = сразу готов.
+    this.setReady(true);
   }
 
   disconnect(): void {
