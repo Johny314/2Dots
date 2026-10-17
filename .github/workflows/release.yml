@@ -5,16 +5,6 @@ name: release
 on:
   push:
     tags: ['v*']
-    # Проверочная сборка (без релиза) при изменении конфигурации упаковки на ветках фаз (не main).
-    # Оставлено сознательно: ветки фаз (phase*/**) продолжают править сборку и после слияния
-    # release.yml в main, а paths-фильтр ограничивает запуск только изменениями упаковки.
-    # Если ветки фаз перестанут использоваться — триггер можно удалить (останутся v* и workflow_dispatch).
-    branches: ['phase*/**']
-    paths:
-      - .github/workflows/release.yml
-      - apps/desktop/electron-builder.yml
-      - apps/desktop/electron.vite.config.ts
-      - apps/desktop/build/**
   workflow_dispatch:
 
 permissions:
@@ -67,16 +57,12 @@ jobs:
           pnpm typecheck
           pnpm lint
           pnpm test
-          pnpm --filter @2dots/desktop test
 
       - name: Build installers
         run: pnpm ${{ matrix.dist }}
 
       # Запуск упакованного приложения: окно, hostStart/discoverHosts/hostStop, выход с остановкой сервера.
-      # Пока @2dots/net — заглушка трека B, hostStart в пакете бросает ошибку, поэтому шаг не блокирует сборку.
-      # TODO(фаза 2, после слияния трека B): убрать continue-on-error, чтобы смоук стал обязательным.
       - name: Smoke-test packaged app
-        continue-on-error: true
         timeout-minutes: 5
         run: pnpm --filter @2dots/desktop smoke:packaged
 
