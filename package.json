@@ -1,0 +1,32 @@
+{
+  "name": "2dots",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @2dots/desktop dev",
+    "dev:mock": "TWODOTS_MODE=mock pnpm --filter @2dots/desktop dev",
+    "dev:local": "TWODOTS_MODE=local pnpm --filter @2dots/desktop dev",
+    "typecheck": "pnpm -r typecheck && tsc -p tools",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "pnpm --filter \"./packages/*\" test",
+    "test:e2e": "pnpm --filter @2dots/desktop test:e2e",
+    "bot": "tsx tools/bot.ts",
+    "dist:mac": "pnpm --filter @2dots/desktop dist:mac",
+    "dist:win": "pnpm --filter @2dots/desktop dist:win"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2"
+  }
+}

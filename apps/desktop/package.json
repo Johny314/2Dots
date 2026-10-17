@@ -1,0 +1,29 @@
+{
+  "name": "@2dots/desktop",
+  "productName": "2Dots",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Мини-игры для двоих по локальной сети",
+  "author": "2Dots",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
+    "test:e2e": "electron-vite build && playwright test",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:win": "electron-vite build && electron-builder --win"
+  },
+  "dependencies": {
+    "@2dots/core": "workspace:*",
+    "@2dots/net": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "electron": "44.9.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "6.0.0",
+    "vite": "8.3.4"
+  }
+}
