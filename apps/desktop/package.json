@@ -11,9 +11,11 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
+    "test": "vitest run --dir src",
     "test:e2e": "electron-vite build && playwright test",
     "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:win": "electron-vite build && electron-builder --win"
+    "dist:win": "electron-vite build && electron-builder --win",
+    "smoke:packaged": "node build/smoke-packaged.mjs"
   },
   "dependencies": {
     "@2dots/core": "workspace:*",

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { join } from 'node:path';
 import { IPC } from '../shared/api';
+import { discoverHosts, hostStart, hostStop, isHosting } from './host';
 
 // Важно: без requestSingleInstanceLock — для тестов запускаются два экземпляра.
 
@@ -22,6 +23,12 @@ function createWindow(): void {
   });
   win.once('ready-to-show', () => win.show());
 
+  // Renderer не открывает новых окон и не уходит со своей страницы (CSP — в renderer/index.html).
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL()) event.preventDefault();
+  });
+
   // TWODOTS_MODE=mock|local — режим отладки renderer (см. CLAUDE.md).
   const mode = process.env.TWODOTS_MODE;
   const query: Record<string, string> = mode ? { [mode]: '1' } : {};
@@ -38,13 +45,9 @@ function registerIpc(): void {
   ipcMain.on(IPC.getVersion, (event) => {
     event.returnValue = app.getVersion();
   });
-  // Трек C: hostStart / hostStop / discoverHosts.
-  const notImplemented = async () => {
-    throw new Error('не реализовано (трек C)');
-  };
-  ipcMain.handle(IPC.hostStart, notImplemented);
-  ipcMain.handle(IPC.hostStop, notImplemented);
-  ipcMain.handle(IPC.discoverHosts, notImplemented);
+  ipcMain.handle(IPC.hostStart, () => hostStart());
+  ipcMain.handle(IPC.hostStop, () => hostStop());
+  ipcMain.handle(IPC.discoverHosts, () => discoverHosts());
 }
 
 void app.whenReady().then(() => {
@@ -57,4 +60,17 @@ void app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// На выходе останавливаем сервер и снимаем mDNS-публикацию, затем выходим по-настоящему.
+// before-quit, а не will-quit: повторный app.quit() после preventDefault в will-quit на macOS не срабатывает.
+let quitting = false;
+app.on('before-quit', (event) => {
+  if (quitting || !isHosting()) return;
+  event.preventDefault();
+  quitting = true;
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+  void Promise.race([hostStop(), timeout])
+    .catch((err: unknown) => console.warn('[2dots] остановка хоста при выходе:', err))
+    .finally(() => app.quit());
 });

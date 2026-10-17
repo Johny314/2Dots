@@ -1,0 +1,58 @@
+# Упаковка 2Dots. Без подписи: macOS — «правый клик → Открыть», Windows — SmartScreen «Выполнить в любом случае».
+appId: kz.twodots.game
+productName: 2Dots
+copyright: Copyright © 2026 2Dots
+
+directories:
+  output: release
+  buildResources: build
+
+# Всё нужное (включая ws и bonjour-service) уже забандлено в out/ — node_modules в пакет не кладём.
+files:
+  - out/**/*
+  - package.json
+  - '!**/node_modules/**'
+  - '!**/*.map'
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+# Публикацию делает GitHub Actions (softprops/action-gh-release), а не electron-builder.
+publish: null
+afterPack: build/adhoc-sign.mjs
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.games
+  icon: build/icon.icns
+  # Без Developer ID (и без поиска сертификатов в связке ключей); ad-hoc подпись — в build/adhoc-sign.mjs.
+  identity: null
+  artifactName: 2Dots-${version}-mac-${arch}.${ext}
+  extendInfo:
+    NSLocalNetworkUsageDescription: 2Dots ищет второго игрока в локальной сети.
+    NSBonjourServices:
+      - _2dots._tcp
+
+dmg:
+  artifactName: 2Dots-${version}-mac-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.ico
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: 2Dots
+  artifactName: 2Dots-${version}-win-${arch}-setup.${ext}
+
+portable:
+  artifactName: 2Dots-${version}-win-${arch}-portable.${ext}

@@ -2,8 +2,16 @@ import { defineConfig } from 'electron-vite';
 
 export default defineConfig({
   main: {
-    // Всё (включая workspace-пакеты на TS) бандлится в out/main — упакованному приложению не нужны node_modules.
+    // Всё (включая workspace-пакеты на TS, ws и bonjour-service) бандлится в out/main —
+    // упакованному приложению не нужны node_modules (electron-builder.yml их и не кладёт).
     build: { externalizeDeps: false },
+    // У ws есть опциональные нативные ускорители bufferutil/utf-8-validate. Они не установлены,
+    // и vite подставляет вместо них заглушку, бросающую ошибку внутри try/catch ws. Флаги ниже
+    // выключают сами попытки require — код этих веток выкидывается из бандла.
+    define: {
+      'process.env.WS_NO_BUFFER_UTIL': JSON.stringify('1'),
+      'process.env.WS_NO_UTF_8_VALIDATE': JSON.stringify('1'),
+    },
   },
   preload: {
     build: {
