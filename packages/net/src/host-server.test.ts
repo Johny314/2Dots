@@ -1,3 +1,4 @@
+import { networkInterfaces } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MATCH_WINS, type AnyMiniGame, type MiniGame } from '@2dots/core';
 import { counterGame } from '@2dots/core/testing';
@@ -75,6 +76,22 @@ describe('лобби', () => {
     const lobby = await createClientAndWaitLobby(port);
     expect(lobby.gameId).toBe('maze');
   });
+
+  const lanIp = Object.values(networkInterfaces())
+    .flat()
+    .find((i) => i?.family === 'IPv4' && !i.internal)?.address;
+
+  it.skipIf(!lanIp)(
+    'гость из сети не занимает p1, даже если подключился раньше хоста',
+    async () => {
+      const { port } = await start();
+      const guest = createGameClient();
+      clients.push(guest);
+      expect(await guest.connect(lanIp as string, port, 'Гость')).toBe('p2');
+      const host = await join(port, 'Хост');
+      expect(host.you).toBe('p1');
+    },
+  );
 
   it('третий игрок получает full', async () => {
     const { port } = await start();

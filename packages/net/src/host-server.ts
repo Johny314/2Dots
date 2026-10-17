@@ -95,7 +95,9 @@ class HostServer {
     const first = ids[0];
     if (first === undefined) throw new Error('Список мини-игр пуст');
     this.gameId = ids.includes(DEFAULT_GAME_ID) ? DEFAULT_GAME_ID : first;
-    wss.on('connection', (socket) => this.onConnection(socket));
+    wss.on('connection', (socket, req) =>
+      this.onConnection(socket, isLoopback(req.socket.remoteAddress)),
+    );
   }
 
   get port(): number {
@@ -111,7 +113,8 @@ class HostServer {
 
   // ---------- соединения ----------
 
-  private onConnection(socket: WebSocket): void {
+  /** loopback — подключение с этого же компьютера; только оно может занять слот хоста p1. */
+  private onConnection(socket: WebSocket, loopback: boolean): void {
     let player: PlayerId | null = null;
 
     socket.on('message', (data: RawData, isBinary: boolean) => {
@@ -125,7 +128,7 @@ class HostServer {
           this.sendError(socket, 'bad_msg', 'Сначала нужно отправить hello');
           return;
         }
-        player = this.onHello(socket, msg);
+        player = this.onHello(socket, msg, loopback);
         return;
       }
       this.onMessage(player, msg);
@@ -137,7 +140,11 @@ class HostServer {
     socket.on('error', () => socket.terminate());
   }
 
-  private onHello(socket: WebSocket, msg: Extract<ClientMsg, { t: 'hello' }>): PlayerId | null {
+  private onHello(
+    socket: WebSocket,
+    msg: Extract<ClientMsg, { t: 'hello' }>,
+    loopback: boolean,
+  ): PlayerId | null {
     if (msg.v !== PROTOCOL_VERSION) {
       this.sendError(
         socket,
@@ -147,7 +154,8 @@ class HostServer {
       socket.close();
       return null;
     }
-    const id = PLAYER_IDS.find((p) => this.slots[p] === null);
+    // Гость из сети никогда не получает p1 (права хоста), даже если успел раньше своего клиента хоста.
+    const id = PLAYER_IDS.find((p) => this.slots[p] === null && (loopback || p !== 'p1'));
     if (id === undefined || this.phase === 'countdown' || this.phase === 'playing') {
       this.sendError(socket, 'full', 'В игре уже два игрока');
       socket.close();
@@ -438,4 +446,12 @@ export function startHostServer(options: HostServerOptions = {}): Promise<HostSe
       resolve({ port, stop: () => server.stop() });
     });
   });
+}
+
+function isLoopback(address: string | undefined): boolean {
+  return (
+    address === '::1' ||
+    address?.startsWith('127.') === true ||
+    address?.startsWith('::ffff:127.') === true
+  );
 }
