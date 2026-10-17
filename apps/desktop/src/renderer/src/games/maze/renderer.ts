@@ -1,13 +1,13 @@
 // Canvas 2D рендерер лабиринта: стены, точки со свечением, след, туман войны, HUD.
 import { maze as mazeCore, PLAYER_IDS, type PlayerId } from '@2dots/core';
 import type { maze } from '@2dots/core';
-import { visibleCells } from './fog';
-import { cellIndex, DIR_VEC } from './grid';
 
 type MazeState = maze.MazeState;
 type MazePlayer = maze.MazePlayer;
 
-const { WALL } = mazeCore;
+const { WALL, DELTA, visibleCells } = mazeCore;
+
+const cellIndex = (m: maze.Maze, x: number, y: number): number => y * m.width + x;
 
 export const COLORS = {
   bg: '#0e0f1a',
@@ -27,7 +27,10 @@ const PADDING = 20;
 export interface MazeRendererOptions {
   /** Чей это экран. null — локальный режим: оба игрока равноправны. */
   you: PlayerId | null;
-  labels: Record<PlayerId, string>;
+  /** Имена игроков в HUD. */
+  names: Record<PlayerId, string>;
+  /** Счёт матча (побед в раундах); null — не показывать. */
+  match: Record<PlayerId, number> | null;
   /** Рисовать туман войны (если в конфиге fogRadius !== null). */
   fog: boolean;
 }
@@ -39,7 +42,7 @@ interface Point {
 
 function playerPos(p: MazePlayer): Point {
   if (!p.dir || p.moveProgress <= 0) return { x: p.x, y: p.y };
-  const [dx, dy] = DIR_VEC[p.dir];
+  const [dx, dy] = DELTA[p.dir];
   return { x: p.x + dx * p.moveProgress, y: p.y + dy * p.moveProgress };
 }
 
@@ -47,7 +50,7 @@ function playerPos(p: MazePlayer): Point {
 function occupiedCells(state: MazeState, p: MazePlayer): number[] {
   const cells = [cellIndex(state.maze, p.x, p.y)];
   if (p.dir && p.moveProgress > 0) {
-    const [dx, dy] = DIR_VEC[p.dir];
+    const [dx, dy] = DELTA[p.dir];
     cells.push(cellIndex(state.maze, p.x + dx, p.y + dy));
   }
   return cells;
@@ -195,7 +198,7 @@ export class MazeRenderer {
         const p = state.players[id];
         for (const i of visibleCells(state.maze, p.x, p.y, radius)) visible.add(i);
         if (p.dir && p.moveProgress > 0.5) {
-          const [dx, dy] = DIR_VEC[p.dir];
+          const [dx, dy] = DELTA[p.dir];
           for (const i of visibleCells(state.maze, p.x + dx, p.y + dy, radius)) visible.add(i);
         }
         for (const i of p.visited) seen.add(i);
@@ -303,16 +306,30 @@ export class MazeRenderer {
       ctx.restore();
       ctx.fillStyle = id === this.options.you ? COLORS.fg : COLORS.muted;
       ctx.textAlign = align;
-      ctx.fillText(this.options.labels[id], align === 'left' ? x + 24 : x - 24, midY);
+      ctx.fillText(this.options.names[id], align === 'left' ? x + 24 : x - 24, midY);
     };
     label('p1', 'left');
     label('p2', 'right');
 
     const remaining = state.config.timeLimitMs - state.elapsedMs;
+    const cx = this.cssW / 2;
     ctx.textAlign = 'center';
     ctx.font = '700 24px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
     ctx.fillStyle = remaining <= 30_000 ? COLORS.danger : COLORS.fg;
-    ctx.fillText(formatTime(remaining), this.cssW / 2, midY);
+    ctx.fillText(formatTime(remaining), cx, midY);
+
+    // Счёт матча по бокам от таймера, цветами игроков.
+    const match = this.options.match;
+    if (match) {
+      const gap = 62;
+      ctx.font = '700 20px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+      ctx.fillStyle = COLORS.p1;
+      ctx.textAlign = 'right';
+      ctx.fillText(String(match.p1), cx - gap, midY);
+      ctx.fillStyle = COLORS.p2;
+      ctx.textAlign = 'left';
+      ctx.fillText(String(match.p2), cx + gap, midY);
+    }
   }
 
   private getWallsPath(seed: number, m: maze.Maze, cell: number, ox: number, oy: number): Path2D {

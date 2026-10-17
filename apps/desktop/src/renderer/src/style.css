@@ -717,6 +717,10 @@ kbd {
   overflow: hidden;
 }
 
+.game.no-hud {
+  grid-template-rows: 1fr;
+}
+
 .game-hud {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

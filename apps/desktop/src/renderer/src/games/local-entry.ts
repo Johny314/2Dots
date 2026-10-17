@@ -1,7 +1,6 @@
 // Точка входа режима ?local=1 (без сети, два игрока на одной клавиатуре).
 // Владелец — трек E. main.ts вызывает startLocalMode при ?local=1.
 import { maze, type PlayerId } from '@2dots/core';
-import { devInit, devTick } from './maze/dev-sim';
 import { ARROWS, createKeyInput, WASD } from './maze/input';
 import { COLORS, MazeRenderer } from './maze/renderer';
 
@@ -12,6 +11,9 @@ const { mazeGame } = maze;
 const TICK_MS = 1000 / mazeGame.tickHz;
 const MAX_TICKS_PER_FRAME = 5;
 const LABELS: Record<PlayerId, string> = { p1: 'Игрок 1 · WASD', p2: 'Игрок 2 · стрелки' };
+
+const newRound = (seed: number): MazeState =>
+  mazeGame.init(seed, ['p1', 'p2'], mazeGame.defaultConfig());
 
 export function startLocalMode(root: HTMLElement): void {
   root.innerHTML = '';
@@ -50,10 +52,15 @@ export function startLocalMode(root: HTMLElement): void {
   });
   root.append(hint);
 
-  const renderer = new MazeRenderer(canvas, { you: null, labels: LABELS, fog: false });
+  const renderer = new MazeRenderer(canvas, {
+    you: null,
+    names: LABELS,
+    match: null,
+    fog: false,
+  });
   const held: Record<PlayerId, Dir | null> = { p1: null, p2: null };
   let seed = 1;
-  let state: MazeState = devInit(seed);
+  let state: MazeState = newRound(seed);
   let acc = 0;
   let last = performance.now();
   let shownResult = false;
@@ -69,7 +76,7 @@ export function startLocalMode(root: HTMLElement): void {
 
   const restart = () => {
     seed++;
-    state = devInit(seed);
+    state = newRound(seed);
     for (const id of ['p1', 'p2'] as const) mazeGame.applyInput(state, id, { dir: held[id] });
     acc = 0;
     shownResult = false;
@@ -123,7 +130,7 @@ export function startLocalMode(root: HTMLElement): void {
     last = now;
     let ticks = 0;
     while (acc >= TICK_MS && ticks < MAX_TICKS_PER_FRAME) {
-      devTick(state, TICK_MS);
+      mazeGame.tick(state, TICK_MS);
       acc -= TICK_MS;
       ticks++;
     }

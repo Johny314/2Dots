@@ -49,7 +49,12 @@ export function gameScreen(props: GameProps): GameScreen {
   const mount = GAME_VIEWS[props.gameId];
   if (mount) {
     try {
-      view = mount(canvas, { you: props.you, onInput: props.onInput });
+      view = mount(canvas, {
+        you: props.you,
+        names: props.names,
+        match: { p1: props.match.p1 ?? 0, p2: props.match.p2 ?? 0 },
+        onInput: props.onInput,
+      });
     } catch (err) {
       stubInfo = stub(`Не удалось запустить «${title}»: ${errorMessage(err)}`);
     }
@@ -152,7 +157,8 @@ export function gameScreen(props: GameProps): GameScreen {
     stay.focus();
   };
 
-  const el = h('main', { class: 'game' }, hud, stage);
+  // Рендерер рисует имена и счёт сам (HUD на canvas); DOM-шапка — только для заглушки.
+  const el = h('main', { class: view ? 'game no-hud' : 'game' }, view ? null : hud, stage);
 
   let ticks = 0;
   return {
