@@ -77,9 +77,11 @@ export function createGameClient(): GameClient {
           if (disconnected) return;
           disconnected = true;
           if (socket === ws) socket = null;
+          // disconnect — только для установленного соединения; неудачный connect() просто реджектится.
+          const wasConnected = settled && status === 'connected';
           status = 'closed';
           settle(new Error(`Соединение закрыто: ${reason}`));
-          emit('disconnect', { reason });
+          if (wasConnected) emit('disconnect', { reason });
         };
         // Используется disconnect() для синхронного закрытия.
         closers.set(ws, finish);

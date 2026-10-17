@@ -43,8 +43,13 @@ describe('GameClient', () => {
     await connectClient(server.port, 'B');
     const third = createGameClient();
     const err = waitFor(third, 'error');
+    let disconnects = 0;
+    third.on('disconnect', () => disconnects++);
     await expect(third.connect(HOST, server.port, 'C')).rejects.toThrow(/full/);
     expect((await err).code).toBe('full');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(third.status).toBe('closed');
+    expect(disconnects).toBe(0);
   });
 
   it('disconnect() шлёт событие disconnect один раз; повторный connect работает', async () => {
