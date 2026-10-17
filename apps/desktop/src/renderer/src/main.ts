@@ -1,4 +1,5 @@
 import { GAMES } from '@2dots/core';
+import { startLocalMode } from './games/local-entry';
 import './style.css';
 
 // Режимы запуска (см. CLAUDE.md): ?mock=1 — UI на моках (трек D), ?local=1 — лабиринт локально (трек E).
@@ -12,7 +13,9 @@ const games = Object.values(GAMES)
   .map((g) => g.title)
   .join(', ');
 
-root.innerHTML = `
+if (mode === 'local') startLocalMode(root);
+else
+  root.innerHTML = `
   <main class="splash">
     <div class="dots"><span class="dot p1"></span><span class="dot p2"></span></div>
     <h1>2Dots</h1>
