@@ -64,7 +64,7 @@
 
 - IPC из ARCHITECTURE.md; `hostStart` поднимает `HostServer` + mDNS, возвращает локальные IPv4 (без `127.*`, `169.254.*`).
 - `contextIsolation: true`, `nodeIntegration: false`, CSP.
-- electron-builder: mac `dmg` (arm64; флаг для `universal`), win `nsis` + `portable` x64; `appId: kz.twodots.game`; без подписи.
+- electron-builder: mac `dmg` arm64, win `nsis` + `portable` x64 (основная цель — Windows-ноутбук девушки); `appId: kz.twodots.game`; без подписи.
 - `release.yml`: на тег `v*` и вручную — матрица macos/windows, `pnpm dist:*`, артефакты в GitHub Release.
 - `ws` и `bonjour-service` бандлятся в `out/main` (`externalizeDeps: false`): у `ws` есть опциональные нативные `bufferutil`/`utf-8-validate` — убедиться, что сборка их корректно пропускает (или вынести эти два пакета во внешние и упаковать `node_modules`).
 - **Приёмка:** `pnpm dist:mac` создаёт `.dmg`; **упакованное** приложение запускается и `hostStart()` реально поднимает сервер (проверить подключением `pnpm bot` или `wscat`); workflow проходит `actionlint`.
