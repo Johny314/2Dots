@@ -2,6 +2,7 @@ import { GAMES, MATCH_WINS, PLAYER_IDS, type PlayerId, type ServerMsg } from '@2
 import { h } from '../dom';
 import type { Screen } from '../router';
 import { button, matchScore, playerDot, setButtonLabel } from './common';
+import { settingsPanel } from './settings';
 
 type LobbyMsg = Extract<ServerMsg, { t: 'lobby' }>;
 
@@ -9,6 +10,7 @@ export interface LobbyProps {
   you: PlayerId;
   onReady(ready: boolean): void;
   onSelect(gameId: string): void;
+  onConfig(patch: Record<string, unknown>): void;
   onLeave(): void;
 }
 
@@ -43,6 +45,7 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
     onClick: props.onLeave,
   });
   const readyHint = h('p', { class: 'muted small' });
+  const settings = settingsPanel({ isHost, onChange: props.onConfig });
 
   const me = () => lobby.players.find((p) => p.id === props.you);
 
@@ -102,6 +105,8 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
       }),
     );
 
+    settings.update(lobby.gameId, lobby.config);
+
     score.replaceChildren(
       h('span', { class: 'muted small' }, `Матч до ${MATCH_WINS} побед`),
       matchScore(lobby.match, 'lobby-match'),
@@ -118,7 +123,7 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
       : ready
         ? 'Ждём, когда соперник будет готов…'
         : isHost
-          ? 'Выберите игру и нажмите «Готов»'
+          ? 'Выберите игру и настройки, затем нажмите «Готов»'
           : 'Игру выбирает хост. Нажмите «Готов»';
   }
 
@@ -135,6 +140,7 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
       games,
       score,
     ),
+    settings.el,
     h('div', { class: 'actions actions-row' }, leaveBtn, readyBtn),
     readyHint,
   );

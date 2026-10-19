@@ -6,6 +6,7 @@ import {
   fogVisible,
   generateMaze,
   mazeGame,
+  pathDistance,
   startCell,
   visibleCells,
   type Dir,
@@ -45,6 +46,8 @@ function openPassages(maze: Maze): number {
 function stateWith(maze: Maze, overrides: Partial<MazeConfig> = {}): MazeState {
   const config: MazeConfig = {
     ...mazeGame.defaultConfig(),
+    // Большинство сценариев ниже проверяют режим bfs; distinct/steps задаются явно.
+    scoring: 'bfs',
     width: maze.width,
     height: maze.height,
     ...overrides,
@@ -192,8 +195,13 @@ describe('mazeGame: init и ввод', () => {
     expect(s.players.p1.visited).toEqual([0]);
   });
 
-  it('конфиг по умолчанию: счёт bfs, туман 3', () => {
-    expect(mazeGame.defaultConfig()).toMatchObject({ scoring: 'bfs', fogRadius: 3, braid: 0 });
+  it('конфиг по умолчанию: счёт distinct, туман 3, горячо-холодно выключено', () => {
+    expect(mazeGame.defaultConfig()).toMatchObject({
+      scoring: 'distinct',
+      fogRadius: 3,
+      braid: 0,
+      hotCold: false,
+    });
   });
 
   it('проверяет ввод', () => {
@@ -356,7 +364,8 @@ describe('mazeGame: движение', () => {
 describe('mazeGame: встреча и счёт', () => {
   it('два бота по BFS всегда встречаются, счёт bfs корректен', () => {
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 1000, 31337]) {
-      const s = mazeGame.init(seed, ['p1', 'p2'], mazeGame.defaultConfig());
+      const cfg: MazeConfig = { ...mazeGame.defaultConfig(), scoring: 'bfs' };
+      const s = mazeGame.init(seed, ['p1', 'p2'], cfg);
       for (let t = 0; t < 30 * 180 && !s.result; t++) {
         const { p1, p2 } = s.players;
         mazeGame.applyInput(s, 'p1', { dir: botDir(s.maze, p1, p2) });
@@ -437,6 +446,22 @@ describe('mazeGame: встреча и счёт', () => {
     expect(r?.meetCell).toEqual([6, 0]);
   });
 
+  it('по умолчанию (distinct) повторный проход по своему следу очков не даёт', () => {
+    // Коридор 8×1: p2 идёт влево на 3 клетки, возвращается на 2 и снова влево до встречи.
+    const s = stateWith(generateMaze(1, 8, 1), { scoring: mazeGame.defaultConfig().scoring });
+    const ticksPerCell = Math.ceil(mazeGame.tickHz / s.config.speedCellsPerSec) + 1;
+    mazeGame.applyInput(s, 'p2', { dir: 'left' });
+    runTicks(s, ticksPerCell * 3);
+    mazeGame.applyInput(s, 'p2', { dir: 'right' });
+    runTicks(s, ticksPerCell * 2);
+    mazeGame.applyInput(s, 'p2', { dir: 'left' });
+    runTicks(s, 600);
+    const r = mazeGame.result(s);
+    expect(s.players.p2.steps).toBeGreaterThan(s.players.p2.visited.length - 1);
+    // p2 посетил клетки 7..1 — 7 уникальных, сколько бы раз ни проходил; p1 стоял в 0.
+    expect(r).toMatchObject({ reason: 'met', winner: 'p2', scores: { p1: 1, p2: 7 } });
+  });
+
   it('режим distinct — число уникальных клеток', () => {
     const s = stateWith(generateMaze(1, 8, 1), { scoring: 'distinct' });
     mazeGame.applyInput(s, 'p2', { dir: 'left' });
@@ -485,5 +510,53 @@ describe('mazeGame: встреча и счёт', () => {
     mazeGame.applyInput(s, 'p1', { dir: 'right' });
     mazeGame.tick(s, DT);
     expect(s).toEqual(snapshot);
+  });
+});
+
+describe('mazeGame: настройки хоста (parseConfig)', () => {
+  const base = mazeGame.defaultConfig();
+
+  it('выключает туман и включает горячо-холодно', () => {
+    expect(mazeGame.parseConfig({ fogRadius: null, hotCold: true }, base)).toEqual({
+      ...base,
+      fogRadius: null,
+      hotCold: true,
+    });
+  });
+
+  it('пустые настройки — копия base', () => {
+    expect(mazeGame.parseConfig({}, base)).toEqual(base);
+  });
+
+  it('нельзя менять поля, кроме тумана и горячо-холодно', () => {
+    const next = mazeGame.parseConfig(
+      { width: 999, speedCellsPerSec: 100, scoring: 'steps' },
+      base,
+    );
+    expect(next).toEqual(base);
+  });
+
+  it('отклоняет некорректные значения', () => {
+    expect(mazeGame.parseConfig(null, base)).toBeNull();
+    expect(mazeGame.parseConfig({ fogRadius: 0 }, base)).toBeNull();
+    expect(mazeGame.parseConfig({ fogRadius: 2.5 }, base)).toBeNull();
+    expect(mazeGame.parseConfig({ fogRadius: 50 }, base)).toBeNull();
+    expect(mazeGame.parseConfig({ hotCold: 'да' }, base)).toBeNull();
+  });
+});
+
+describe('pathDistance', () => {
+  it('расстояние по проходам, а не по прямой', () => {
+    // Змейка 3×2: (0,0)→(1,0)→(2,0)→(2,1)→(1,1)→(0,1); по прямой (0,0)–(0,1) — 1, по пути — 5.
+    const maze = pathMaze(3, 2, [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [2, 1],
+      [1, 1],
+      [0, 1],
+    ]);
+    expect(pathDistance(maze, [0, 0], [0, 1])).toBe(5);
+    expect(pathDistance(maze, [2, 0], [2, 0])).toBe(0);
   });
 });

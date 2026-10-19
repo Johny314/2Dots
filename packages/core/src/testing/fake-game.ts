@@ -22,6 +22,14 @@ export const counterGame: MiniGame<CounterConfig, CounterState, CounterInput, Co
   tickHz: 30,
   defaultConfig: () => ({ target: 5 }),
   init: (_seed, _players, config) => ({ tick: 0, target: config.target, counts: { p1: 0, p2: 0 } }),
+  parseConfig(raw, base) {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const target = (raw as { target?: unknown }).target;
+    if (target === undefined) return { ...base };
+    return typeof target === 'number' && Number.isInteger(target) && target >= 1 && target <= 100
+      ? { target }
+      : null;
+  },
   parseInput(raw) {
     if (typeof raw !== 'object' || raw === null) return null;
     const inc = (raw as { inc?: unknown }).inc;

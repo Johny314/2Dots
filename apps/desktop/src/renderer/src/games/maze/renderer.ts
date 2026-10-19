@@ -1,6 +1,9 @@
-// Canvas 2D рендерер лабиринта: стены, точки со свечением, след, туман войны, HUD.
+// Canvas 2D рендерер лабиринта: стены, точки со свечением, след, туман войны, HUD,
+// индикатор «Горячо-холодно» и анимация встречи.
 import { maze as mazeCore, PLAYER_IDS, type PlayerId } from '@2dots/core';
 import type { maze } from '@2dots/core';
+import { HeatTracker, heatColor, heatWord, type HeatReading } from './heat';
+import { createOutro, drawOutroEffects, fogLift, gatherPos, merged, type Outro } from './outro';
 
 type MazeState = maze.MazeState;
 type MazePlayer = maze.MazePlayer;
@@ -22,6 +25,8 @@ export const COLORS = {
 
 const TRAIL_LENGTH = 20;
 const HUD_HEIGHT = 56;
+/** Полоса индикатора «Горячо-холодно» под HUD (только когда режим включён). */
+const HEAT_HEIGHT = 34;
 const PADDING = 20;
 
 export interface MazeRendererOptions {
@@ -79,6 +84,13 @@ export class MazeRenderer {
   private wallsPath: Path2D | null = null;
   private wallsKey = '';
 
+  private readonly heatTracker = new HeatTracker();
+  private heat: HeatReading | null = null;
+  /** Сглаженное значение для плавного движения индикатора. */
+  private heatShown = 0;
+  private lastFrameAt = 0;
+  private outro: Outro | null = null;
+
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private options: MazeRendererOptions,
@@ -115,9 +127,22 @@ export class MazeRenderer {
       this.prev = null;
       this.trails.p1 = [];
       this.trails.p2 = [];
+      this.outro = null;
+      this.heatShown = 0;
     }
     this.cur = state;
     this.curAt = now;
+    const you = this.options.you;
+    this.heat = state.config.hotCold && you ? this.heatTracker.read(state, you, now) : null;
+    if (state.result && !this.outro) {
+      const reason = state.result.reason;
+      this.outro = createOutro(
+        reason,
+        now,
+        playerPos(state.players.p1),
+        playerPos(state.players.p2),
+      );
+    }
     for (const id of PLAYER_IDS) {
       const p = state.players[id];
       const trail = this.trails[id];
@@ -127,6 +152,12 @@ export class MazeRenderer {
         if (trail.length > TRAIL_LENGTH) trail.shift();
       }
     }
+  }
+
+  /** Сколько ещё мс идёт финальная анимация (0 — её нет или она закончилась). */
+  outroRemainingMs(): number {
+    const o = this.outro;
+    return o ? Math.max(0, o.startedAt + o.durationMs - performance.now()) : 0;
   }
 
   destroy(): void {
@@ -158,17 +189,23 @@ export class MazeRenderer {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, this.cssW, this.cssH);
+    const dt = this.lastFrameAt ? now - this.lastFrameAt : 0;
+    this.lastFrameAt = now;
+    if (this.heat) this.heatShown += (this.heat.heat - this.heatShown) * Math.min(1, dt / 250);
     if (this.cur) this.draw(this.cur, now);
   };
 
   private draw(state: MazeState, now: number): void {
     const ctx = this.ctx;
     const { width, height } = state.maze;
+    const top = HUD_HEIGHT + (state.config.hotCold && this.options.you ? HEAT_HEIGHT : 0);
     const availW = this.cssW - PADDING * 2;
-    const availH = this.cssH - HUD_HEIGHT - PADDING * 2;
+    const availH = this.cssH - top - PADDING * 2;
     const cell = Math.max(4, Math.floor(Math.min(availW / width, availH / height)));
     const ox = Math.round((this.cssW - cell * width) / 2);
-    const oy = Math.round(HUD_HEIGHT + PADDING + (availH - cell * height) / 2);
+    const oy = Math.round(top + PADDING + (availH - cell * height) / 2);
+    const outro = this.outro;
+    const lift = outro ? fogLift(outro, now) : 0;
     const center = (p: Point): Point => ({
       x: ox + (p.x + 0.5) * cell,
       y: oy + (p.y + 0.5) * cell,
@@ -183,6 +220,8 @@ export class MazeRenderer {
       const a = prev ? playerPos(prev) : b;
       const far = Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 2;
       pos[id] = far ? b : { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      // Финал: точки слетаются к месту встречи.
+      if (outro) pos[id] = gatherPos(outro, b, now);
     }
 
     // Туман: что видно сейчас и что видели раньше.
@@ -213,6 +252,18 @@ export class MazeRenderer {
     // Пол.
     ctx.fillStyle = COLORS.floor;
     ctx.fillRect(ox, oy, cell * width, cell * height);
+
+    // Финал: исследованные клетки каждого игрока (это и есть счёт) проявляются его цветом.
+    if (outro && lift > 0) {
+      for (const id of PLAYER_IDS) {
+        ctx.fillStyle = COLORS[id];
+        ctx.globalAlpha = 0.2 * lift;
+        for (const i of state.players[id].visited) {
+          ctx.fillRect(ox + (i % width) * cell, oy + Math.floor(i / width) * cell, cell, cell);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
 
     // След (под стенами и туманом).
     ctx.lineCap = 'round';
@@ -245,13 +296,13 @@ export class MazeRenderer {
     ctx.stroke(this.getWallsPath(state.seed, state.maze, cell, ox, oy));
 
     // Туман войны поверх: видимое ярко, посещённое тускло, остальное темно.
-    if (visible && seen) {
+    if (visible && seen && lift < 1) {
       ctx.fillStyle = COLORS.bg;
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           const i = y * width + x;
           if (visible.has(i)) continue;
-          ctx.globalAlpha = seen.has(i) ? 0.6 : 1;
+          ctx.globalAlpha = (seen.has(i) ? 0.6 : 1) * (1 - lift);
           ctx.fillRect(ox + x * cell - 0.5, oy + y * cell - 0.5, cell + 1, cell + 1);
         }
       }
@@ -259,16 +310,91 @@ export class MazeRenderer {
     }
 
     // Точки. Соперник виден, только если он в видимой зоне.
+    const together = outro !== null && merged(outro, now);
     for (const id of PLAYER_IDS) {
+      if (together) break;
       const isViewer = viewers.includes(id);
-      if (!isViewer && visible) {
+      if (!isViewer && visible && lift < 0.5) {
         const cells = occupiedCells(state, state.players[id]);
         if (!cells.some((i) => visible.has(i))) continue;
       }
-      this.drawDot(center(pos[id]), cell, COLORS[id], id === this.options.you, now);
+      this.drawDot(center(pos[id]), cell, COLORS[id], id === this.options.you && !outro, now);
+    }
+
+    if (this.heat && !outro) this.drawHeat(this.heat, now);
+    if (outro) {
+      drawOutroEffects(outro, now, {
+        ctx,
+        center,
+        cell,
+        width: this.cssW,
+        height: this.cssH,
+        colors: { p1: COLORS.p1, p2: COLORS.p2, fg: COLORS.fg },
+      });
     }
 
     this.drawHud(state);
+  }
+
+  /** «Горячо-холодно»: цветная виньетка по краям и шкала с подписью под HUD. */
+  private drawHeat(reading: HeatReading, now: number): void {
+    const ctx = this.ctx;
+    const heat = this.heatShown;
+    const W = this.cssW;
+    const H = this.cssH;
+
+    // Виньетка: чем горячее, тем ярче и чаще пульсирует.
+    const freq = 0.6 + heat * 2.4;
+    const pulse = heat > 0.6 ? 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2 * freq) : 0.5;
+    const alpha = 0.06 + 0.3 * heat * (0.7 + 0.3 * pulse);
+    const g = ctx.createRadialGradient(
+      W / 2,
+      H / 2,
+      Math.min(W, H) * 0.35,
+      W / 2,
+      H / 2,
+      Math.max(W, H) * 0.75,
+    );
+    g.addColorStop(0, heatColor(heat, 0));
+    g.addColorStop(1, heatColor(heat, alpha));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Шкала.
+    const barW = Math.min(320, W * 0.42);
+    const barH = 8;
+    const x0 = (W - barW) / 2;
+    const y = HUD_HEIGHT + HEAT_HEIGHT / 2 - 2;
+    const grad = ctx.createLinearGradient(x0, 0, x0 + barW, 0);
+    for (let i = 0; i <= 4; i++) grad.addColorStop(i / 4, heatColor(i / 4, 0.9));
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x0, y - barH / 2, barW, barH, barH / 2);
+    ctx.fill();
+
+    // Маркер.
+    const mx = x0 + barW * heat;
+    ctx.shadowColor = heatColor(heat);
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(mx, y, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Подписи: слева — оценка, справа — тренд.
+    ctx.font = '700 14px -apple-system, "Segoe UI", system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = heatColor(heat);
+    ctx.fillText(heatWord(heat), x0 - 14, y);
+    ctx.textAlign = 'left';
+    if (reading.trend) {
+      ctx.fillStyle = reading.trend === 'warmer' ? heatColor(1) : heatColor(0);
+      ctx.fillText(reading.trend === 'warmer' ? '▲ теплее' : '▼ холоднее', x0 + barW + 14, y);
+    }
+    ctx.restore();
   }
 
   private drawDot(c: Point, cell: number, color: string, pulse: boolean, now: number): void {

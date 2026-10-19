@@ -46,6 +46,7 @@ export function resultScreen(props: ResultProps): ResultScreen {
 
   const rows = PLAYER_IDS.map((id) => {
     const pct = summary.percent[id];
+    const label = summary.label[id];
     const isWinner = summary.winner === id;
     return h(
       'div',
@@ -55,11 +56,7 @@ export function resultScreen(props: ResultProps): ResultScreen {
         { class: 'result-head' },
         playerDot(id),
         h('span', { class: 'player-name' }, names[id] + (id === you ? ' (вы)' : '')),
-        h(
-          'span',
-          { class: 'result-pct', testid: `result-pct-${id}` },
-          pct === null ? '—' : `${pct}% пути`,
-        ),
+        h('span', { class: 'result-pct', testid: `result-pct-${id}` }, label ?? '—'),
       ),
       h(
         'div',
@@ -69,7 +66,7 @@ export function resultScreen(props: ResultProps): ResultScreen {
           'aria-valuemin': 0,
           'aria-valuemax': 100,
           'aria-valuenow': pct ?? 0,
-          'aria-label': `${names[id]}: ${pct === null ? 'нет данных' : `${pct}% пути`}`,
+          'aria-label': `${names[id]}: ${label ?? 'нет данных'}`,
         },
         h('span', { class: 'bar-fill', style: `width: ${pct ?? 0}%` }),
       ),

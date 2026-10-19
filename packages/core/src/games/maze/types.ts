@@ -13,6 +13,8 @@ export interface MazeConfig {
   speedCellsPerSec: number;
   /** null — туман выключен. */
   fogRadius: number | null;
+  /** «Горячо-холодно»: игроки видят, насколько близко соперник (по пути в лабиринте). */
+  hotCold: boolean;
   timeLimitMs: number;
   scoring: Scoring;
   /** Доля тупиков, которые превращаются в петли (0 — идеальный лабиринт). */
@@ -65,4 +67,8 @@ export interface MazeResult {
   meetCell: [number, number] | null;
   /** Длина кратчайшего пути между стартами (в клетках). */
   pathLength: number;
+  /** Как считались очки (scores): distinct — уникальные клетки, bfs — продвижение по пути. */
+  scoring: Scoring;
+  /** Всего клеток в лабиринте — знаменатель для «% лабиринта» в режиме distinct. */
+  totalCells: number;
 }

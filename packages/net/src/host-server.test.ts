@@ -147,6 +147,47 @@ describe('лобби', () => {
   });
 });
 
+describe('настройки мини-игры', () => {
+  it('лобби несёт настройки по умолчанию', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const lobby = waitFor(a, 'lobby', (m) => m.players.length === 2);
+    await join(port, 'B');
+    expect((await lobby).config).toEqual({ target: 5 });
+  });
+
+  it('хост меняет настройки: лобби обновляется, готовность сброшена, раунд стартует с ними', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const b = await join(port, 'B');
+    const readyB = waitFor(a, 'lobby', (m) => m.players.some((p) => p.id === 'p2' && p.ready));
+    b.setReady(true);
+    await readyB;
+
+    const changed = waitFor(b, 'lobby', (m) => (m.config as { target: number }).target === 2);
+    a.setConfig({ target: 2 });
+    const lobby = await changed;
+    expect(lobby.players.every((p) => !p.ready)).toBe(true);
+
+    const [start1] = await startRound(a, b);
+    expect(start1.config).toEqual({ target: 2 });
+  });
+
+  it('гость не может менять настройки, некорректные отклоняются', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const b = await join(port, 'B');
+
+    const notHost = waitFor(b, 'error');
+    b.setConfig({ target: 2 });
+    expect((await notHost).code).toBe('not_host');
+
+    const bad = waitFor(a, 'error');
+    a.setConfig({ target: -1 });
+    expect((await bad).code).toBe('bad_config');
+  });
+});
+
 describe('раунд и матч', () => {
   it('start, state и end с seed от сервера', async () => {
     const { port } = await start();
@@ -248,6 +289,7 @@ describe('раунд и матч', () => {
       title: 'Ничья',
       tickHz: 60,
       defaultConfig: () => null,
+      parseConfig: () => null,
       init: () => ({ t: 0 }),
       parseInput: () => null,
       applyInput: () => {},
@@ -274,6 +316,7 @@ describe('раунд и матч', () => {
       title: 'Тики',
       tickHz: 50,
       defaultConfig: () => null,
+      parseConfig: () => null,
       init: () => ({ n: 0 }),
       parseInput: () => null,
       applyInput: () => {},

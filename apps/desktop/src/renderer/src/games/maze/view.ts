@@ -18,5 +18,8 @@ export const mountMazeView: MountGameView = (canvas, { you, names, match, onInpu
       input.destroy();
       renderer.destroy();
     },
+    outroMs() {
+      return renderer.outroRemainingMs();
+    },
   };
 };

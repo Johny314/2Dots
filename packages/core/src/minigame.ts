@@ -14,6 +14,11 @@ export interface MiniGame<Config, State, Input, Result> {
   readonly tickHz: number;
   defaultConfig(): Config;
   init(seed: number, players: readonly PlayerId[], config: Config): State;
+  /**
+   * Настройки, которые хост меняет в лобби: накладывает безопасную часть raw на base.
+   * Поля, которые хосту менять нельзя, берутся из base. null — настройки отклонены.
+   */
+  parseConfig(raw: unknown, base: Config): Config | null;
   /** Проверяет произвольный ввод из сети. null — ввод отклонён. */
   parseInput(raw: unknown): Input | null;
   /** Мутирует state. */

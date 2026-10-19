@@ -17,6 +17,11 @@ export interface GameView {
   update(state: unknown): void;
   /** Снять обработчики клавиатуры, остановить requestAnimationFrame. */
   destroy(): void;
+  /**
+   * Сколько ещё мс доигрывать финальную анимацию раунда (встреча и т. п.).
+   * Экран результата показывается после неё. Нет метода — сразу.
+   */
+  outroMs?(): number;
 }
 
 export type MountGameView = (canvas: HTMLCanvasElement, options: GameViewOptions) => GameView;

@@ -40,7 +40,7 @@ test('два экземпляра: создать → присоединитьс
     const gw = guest.win;
 
     // Версия в подвале — из package.json приложения, а не версия Electron.
-    await expect(hw.getByTestId('mode')).toContainText('версия 0.1.0');
+    await expect(hw.getByTestId('mode')).toContainText('версия 0.2.0');
 
     await createGame(hw, 'Аня');
     await expect(hw.getByTestId('host-ips')).toBeVisible();
@@ -87,11 +87,15 @@ test('два экземпляра: создать → присоединитьс
         await shot(hw, 'phase2-game-fog', 0);
       }
 
-      // Раунд кончается встречей — результат с % пути у обоих.
+      // Раунд кончается встречей — результат с числом клеток и % лабиринта у обоих.
       for (const win of [hw, gw]) {
         await expect(screen(win, 'result')).toBeVisible({ timeout: 60_000 });
-        await expect(win.getByTestId('result-pct-p1')).toHaveText(/^\d+% пути$/);
-        await expect(win.getByTestId('result-pct-p2')).toHaveText(/^\d+% пути$/);
+        await expect(win.getByTestId('result-pct-p1')).toHaveText(
+          /^\d+ клет(ка|ки|ок) · \d+% лабиринта$/,
+        );
+        await expect(win.getByTestId('result-pct-p2')).toHaveText(
+          /^\d+ клет(ка|ки|ок) · \d+% лабиринта$/,
+        );
       }
       const headline = (await hw.getByTestId('result-headline').textContent()) ?? '';
       matchOver = headline.includes('Матч') || headline.includes('матч');
@@ -167,7 +171,9 @@ test('приложение против tools/bot.ts доигрывает рау
     // Хост стоит на месте — бот идёт к нему по BFS и встречает.
     await expect(screen(win, 'result')).toBeVisible({ timeout: 60_000 });
     await expect(win.getByTestId('result-headline')).toHaveText('Поражение');
-    await expect(win.getByTestId('result-pct-p2')).toHaveText(/^\d+% пути$/);
+    await expect(win.getByTestId('result-pct-p2')).toHaveText(
+      /^\d+ клет(ка|ки|ок) · \d+% лабиринта$/,
+    );
     expect(await exited, botLog).toBe(0);
     expect(botLog).toContain('раунд 1 окончен');
 

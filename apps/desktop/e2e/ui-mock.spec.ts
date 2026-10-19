@@ -43,8 +43,12 @@ test('мок: хост — главное → ожидание → лобби �
 
   await expect(screen(win, 'result')).toBeVisible({ timeout: 15_000 });
   await expect(win.getByTestId('result-headline')).toHaveText(/Победа!|Поражение|Ничья/);
-  await expect(win.getByTestId('result-pct-p1')).toHaveText(/^\d+% пути$/);
-  await expect(win.getByTestId('result-pct-p2')).toHaveText(/^\d+% пути$/);
+  await expect(win.getByTestId('result-pct-p1')).toHaveText(
+    /^\d+ клет(ка|ки|ок) · \d+% лабиринта$/,
+  );
+  await expect(win.getByTestId('result-pct-p2')).toHaveText(
+    /^\d+ клет(ка|ки|ок) · \d+% лабиринта$/,
+  );
   await win.waitForTimeout(800); // анимация полос
   await shot(win, '06-result');
 

@@ -79,6 +79,8 @@ class HostServer {
   private readonly games: Readonly<Record<string, AnyMiniGame>>;
   private readonly countdownMs: number;
   private gameId: string;
+  /** Настройки выбранной мини-игры; сбрасываются на defaultConfig при смене игры. */
+  private config: unknown;
   private phase: Phase = 'lobby';
   private match = emptyMatch();
   private matchOver = false;
@@ -95,6 +97,7 @@ class HostServer {
     const first = ids[0];
     if (first === undefined) throw new Error('Список мини-игр пуст');
     this.gameId = ids.includes(DEFAULT_GAME_ID) ? DEFAULT_GAME_ID : first;
+    this.config = (this.games[this.gameId] as AnyMiniGame).defaultConfig();
     wss.on('connection', (socket, req) =>
       this.onConnection(socket, isLoopback(req.socket.remoteAddress)),
     );
@@ -207,6 +210,9 @@ class HostServer {
       case 'select':
         this.onSelect(player, msg.gameId);
         return;
+      case 'config':
+        this.onConfig(player, msg.config);
+        return;
       case 'input':
         this.onInput(player, msg.seq, msg.input);
         return;
@@ -239,6 +245,30 @@ class HostServer {
     if (this.phase !== 'lobby' && this.phase !== 'results') return;
     if (gameId === this.gameId) return;
     this.gameId = gameId;
+    this.config = (this.games[gameId] as AnyMiniGame).defaultConfig();
+    this.phase = 'lobby';
+    this.resetReady();
+    this.resetMatch();
+    this.broadcastLobby();
+  }
+
+  private onConfig(player: PlayerId, raw: unknown): void {
+    const slot = this.slots[player];
+    const game = this.games[this.gameId];
+    if (!slot || !game) return;
+    if (player !== 'p1') {
+      this.sendError(slot.socket, 'not_host', 'Менять настройки может только хост');
+      return;
+    }
+    if (this.phase !== 'lobby' && this.phase !== 'results') return;
+    const next = game.parseConfig(raw, this.config);
+    if (next === null) {
+      this.sendError(slot.socket, 'bad_config', 'Некорректные настройки');
+      return;
+    }
+    if (JSON.stringify(next) === JSON.stringify(this.config)) return;
+    this.config = next;
+    // Новые правила — новый матч; гость должен увидеть настройки до «Готов».
     this.phase = 'lobby';
     this.resetReady();
     this.resetMatch();
@@ -281,7 +311,7 @@ class HostServer {
     // Актуальные готовность (сброшена) и счёт матча — до start, его клиент берёт в HUD.
     this.broadcastLobby();
     const seed = randomSeed();
-    const config = game.defaultConfig();
+    const config = this.config;
     const state = game.init(seed, PLAYER_IDS, config);
     this.round = { game, state, dtMs: 1000 / game.tickHz, nextTickAt: 0, tick: 0, timer: null };
     this.phase = 'countdown';
@@ -390,6 +420,7 @@ class HostServer {
       t: 'lobby',
       players: this.lobbyPlayers(),
       gameId: this.gameId,
+      config: this.config,
       match: { ...this.match },
     });
   }

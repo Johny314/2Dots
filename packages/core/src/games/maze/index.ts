@@ -9,6 +9,16 @@ export { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, inBounds, visibleCells } 
 /** Синоним visibleCells (название из docs/PLAN.md). */
 export const fogVisible = visibleCells;
 
+/** Радиус тумана, когда хост его включает. */
+export const DEFAULT_FOG_RADIUS = 3;
+/** Допустимые радиусы тумана в настройках. */
+const FOG_RADIUS_RANGE = [1, 8] as const;
+
+/** Расстояние по проходам лабиринта между двумя клетками (-1 — недостижимо). */
+export function pathDistance(maze: Maze, from: [number, number], to: [number, number]): number {
+  return bfsDistances(maze, from[0], from[1])[to[1] * maze.width + to[0]] ?? -1;
+}
+
 /** Максимальный путь игрока за один подшаг тика — защита от «проскока» навстречу. */
 const MAX_SUBSTEP_CELLS = 0.5;
 
@@ -125,6 +135,8 @@ function finish(state: MazeState, reason: MazeResult['reason']): MazeResult {
     scores,
     meetCell,
     pathLength: Math.max(0, d1[y2 * maze.width + x2] as number),
+    scoring: state.config.scoring,
+    totalCells: maze.width * maze.height,
   };
 }
 
@@ -137,11 +149,33 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
     width: 21,
     height: 15,
     speedCellsPerSec: 7,
-    fogRadius: 3,
+    fogRadius: DEFAULT_FOG_RADIUS,
     timeLimitMs: 180_000,
-    scoring: 'bfs',
+    scoring: 'distinct',
     braid: 0,
+    hotCold: false,
   }),
+
+  parseConfig(raw, base) {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const { fogRadius, hotCold } = raw as { fogRadius?: unknown; hotCold?: unknown };
+    const next = { ...base };
+    if (fogRadius !== undefined) {
+      const ok =
+        fogRadius === null ||
+        (typeof fogRadius === 'number' &&
+          Number.isInteger(fogRadius) &&
+          fogRadius >= FOG_RADIUS_RANGE[0] &&
+          fogRadius <= FOG_RADIUS_RANGE[1]);
+      if (!ok) return null;
+      next.fogRadius = fogRadius;
+    }
+    if (hotCold !== undefined) {
+      if (typeof hotCold !== 'boolean') return null;
+      next.hotCold = hotCold;
+    }
+    return next;
+  },
 
   init(seed, _players, config) {
     const maze = generateMaze(seed, config.width, config.height, config.braid);

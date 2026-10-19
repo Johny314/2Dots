@@ -5,7 +5,7 @@ import type { DesktopApi, HostInfo } from '../../../shared/api';
 import { errorMessage } from './dom';
 import { summarizeResult } from './result';
 import { Router } from './router';
-import { saveName, loadName } from './storage';
+import { loadName, loadSettings, saveName, saveSettings } from './storage';
 import { namesFrom } from './screens/common';
 import { errorScreen } from './screens/error';
 import { gameScreen, type GameScreen } from './screens/game';
@@ -47,7 +47,8 @@ function hasOpponent(lobby: LobbyMsg | null, you: PlayerId | null): boolean {
 const NETWORK_HINT = 'Проверьте, что оба ноутбука в одной Wi‑Fi сети, и попробуйте снова.';
 
 const SOFT_ERRORS: Partial<Record<ErrorCode, string>> = {
-  not_host: 'Игру выбирает хост',
+  not_host: 'Игру и настройки выбирает хост',
+  bad_config: 'Хост не принял настройки — возможно, разные версии приложения',
   unknown_game: 'Такой мини-игры нет у хоста — обновите приложение',
   bad_msg: 'Хост не понял сообщение — возможно, разные версии приложения',
 };
@@ -147,7 +148,16 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       }),
       client.on('end', (msg) => {
         if (!live() || !s.you) return;
-        showResult(s, msg);
+        // Сначала доигрываем анимацию встречи на экране игры, потом — результат.
+        const game = refs.game;
+        const wait = game?.outroMs() ?? 0;
+        if (wait <= 0) {
+          showResult(s, msg);
+          return;
+        }
+        setTimeout(() => {
+          if (live() && refs.game === game) showResult(s, msg);
+        }, wait);
       }),
       client.on('aborted', () => {
         if (!live()) return;
@@ -210,7 +220,11 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     }
     const s = openSession(client, true);
     clearRefs();
-    const wait = hostWaitScreen({ info, onCancel: goHome });
+    const wait = hostWaitScreen({
+      info,
+      onConfig: (patch) => changeSettings(client, patch),
+      onCancel: goHome,
+    });
     refs.hostWait = wait;
     router.show(wait);
     wait.setStatus('Подключаемся к своей игре…');
@@ -223,7 +237,15 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     }
     if (session !== s) return;
     refs.hostWait?.setStatus('Игра создана. Ждём подключения…');
+    // Хост продолжает с теми же правилами, что в прошлый раз.
+    const saved = loadSettings();
+    if (saved) client.setConfig(saved);
     onLobby(s);
+  }
+
+  function changeSettings(client: GameClient, patch: Record<string, unknown>): void {
+    saveSettings(patch);
+    client.setConfig(patch);
   }
 
   // ---------- присоединиться ----------
@@ -271,6 +293,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       case 'host-wait': {
         const opponent = msg.players.some((p) => p.id !== s.you && p.connected);
         if (opponent) showLobby(s);
+        else refs.hostWait?.updateLobby(msg);
         break;
       }
       case 'join':
@@ -298,6 +321,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
         you: s.you,
         onReady: (ready) => client.setReady(ready),
         onSelect: (id) => client.selectGame(id),
+        onConfig: (patch) => changeSettings(client, patch),
         onLeave: goHome,
       },
       s.lobby,

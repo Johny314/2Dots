@@ -26,6 +26,8 @@ export interface GameClient {
   setReady(ready: boolean): void;
   /** Только хост (p1). */
   selectGame(gameId: string): void;
+  /** Только хост (p1): настройки текущей мини-игры (частичные, проверяет мини-игра). */
+  setConfig(config: unknown): void;
   /** seq проставляется внутри клиента. */
   sendInput(input: unknown): void;
   rematch(): void;

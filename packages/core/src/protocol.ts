@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const PROTOCOL_VERSION = 1;
+/** 2 — настройки мини-игры в лобби (сообщение config, поле lobby.config). */
+export const PROTOCOL_VERSION = 2;
 
 // Переподключения нет: обрыв во время раунда → 'aborted' оставшемуся, раунд не засчитан,
 // слот освобождается, вернувшийся игрок подключается заново через hello.
@@ -16,6 +17,8 @@ export const ClientMsgSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('ready'), ready: z.boolean() }),
   /** Только хост (p1). */
   z.object({ t: z.literal('select'), gameId: z.string().min(1) }),
+  /** Только хост (p1): настройки текущей мини-игры; валидирует сама мини-игра через parseConfig. */
+  z.object({ t: z.literal('config'), config: z.unknown() }),
   /** input валидирует сама мини-игра через parseInput. */
   z.object({ t: z.literal('input'), seq: z.number().int().nonnegative(), input: z.unknown() }),
   z.object({ t: z.literal('rematch') }),
@@ -32,7 +35,14 @@ export const LobbyPlayerSchema = z.object({
 });
 export type LobbyPlayer = z.infer<typeof LobbyPlayerSchema>;
 
-export const ErrorCodeSchema = z.enum(['version', 'full', 'bad_msg', 'not_host', 'unknown_game']);
+export const ErrorCodeSchema = z.enum([
+  'version',
+  'full',
+  'bad_msg',
+  'not_host',
+  'unknown_game',
+  'bad_config',
+]);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
 export const ServerMsgSchema = z.discriminatedUnion('t', [
@@ -41,6 +51,8 @@ export const ServerMsgSchema = z.discriminatedUnion('t', [
     t: z.literal('lobby'),
     players: z.array(LobbyPlayerSchema),
     gameId: z.string(),
+    /** Настройки текущей мини-игры, с которыми начнётся следующий раунд. */
+    config: z.unknown(),
     /** Счёт текущего матча. */
     match: z.record(PlayerIdSchema, z.number().int()),
   }),

@@ -17,6 +17,8 @@ export interface GameProps {
 
 export interface GameScreen extends Screen {
   update(state: unknown): void;
+  /** Сколько ещё мс идёт финальная анимация раунда (0 — можно показывать результат). */
+  outroMs(): number;
 }
 
 export function gameScreen(props: GameProps): GameScreen {
@@ -179,6 +181,7 @@ export function gameScreen(props: GameProps): GameScreen {
         if (tick) tick.textContent = `Получено состояний: ${ticks}`;
       }
     },
+    outroMs: () => view?.outroMs?.() ?? 0,
     destroy: () => {
       if (countTimer) clearInterval(countTimer);
       view?.destroy();

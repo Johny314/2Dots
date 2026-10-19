@@ -125,6 +125,9 @@ export function createGameClient(): GameClient {
     selectGame(gameId) {
       send({ t: 'select', gameId });
     },
+    setConfig(config) {
+      send({ t: 'config', config });
+    },
     sendInput(input) {
       send({ t: 'input', seq: seq++, input });
     },

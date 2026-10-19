@@ -60,6 +60,7 @@ export class MockGameClient implements GameClient {
   private loop: ReturnType<typeof setInterval> | null = null;
   private players: LobbyPlayer[] = [];
   private gameId = DEFAULT_GAME_ID;
+  private config: unknown = getGame(DEFAULT_GAME_ID)?.defaultConfig();
   private match: Match = { p1: 0, p2: 0 };
   private matchOver = false;
   private round: Round | null = null;
@@ -144,6 +145,22 @@ export class MockGameClient implements GameClient {
       return;
     }
     this.gameId = gameId;
+    this.config = getGame(gameId)?.defaultConfig();
+    for (const p of this.players) p.ready = false;
+    this.emitLobby();
+  }
+
+  setConfig(config: unknown): void {
+    if (this._you !== 'p1') {
+      this.emit('error', { t: 'error', code: 'not_host', message: 'Настройки меняет хост' });
+      return;
+    }
+    const next = getGame(this.gameId)?.parseConfig(config, this.config) ?? null;
+    if (next === null) {
+      this.emit('error', { t: 'error', code: 'bad_config', message: 'Некорректные настройки' });
+      return;
+    }
+    this.config = next;
     for (const p of this.players) p.ready = false;
     this.emitLobby();
   }
@@ -206,7 +223,7 @@ export class MockGameClient implements GameClient {
     const game = getGame(this.gameId);
     if (!game) return;
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const config = game.defaultConfig();
+    const config = this.config;
     this.countingDown = true;
     this.emit('start', {
       t: 'start',
@@ -285,6 +302,7 @@ export class MockGameClient implements GameClient {
       t: 'lobby',
       players: this.players.map((p) => ({ ...p })),
       gameId: this.gameId,
+      config: this.config,
       match: { ...this.match },
     });
   }
@@ -318,8 +336,10 @@ function fakeResult(round: Round): unknown {
   const w = s.config?.width ?? 21;
   const hgt = s.config?.height ?? 15;
   const pathLength = w - 1 + (hgt - 1);
-  const p1 = Math.round(pathLength * (0.35 + Math.random() * 0.3));
-  const p2 = pathLength - p1;
+  // Уникальные клетки (режим distinct): каждый «исследовал» 10–40% лабиринта.
+  const totalCells = w * hgt;
+  const p1 = Math.round(totalCells * (0.1 + Math.random() * 0.3));
+  const p2 = Math.round(totalCells * (0.1 + Math.random() * 0.3));
   const winner = p1 === p2 ? 'draw' : p1 > p2 ? 'p1' : 'p2';
   return {
     winner,
@@ -327,5 +347,7 @@ function fakeResult(round: Round): unknown {
     scores: { p1, p2 },
     meetCell: null,
     pathLength,
+    scoring: 'distinct',
+    totalCells,
   };
 }
