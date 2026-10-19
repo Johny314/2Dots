@@ -5,6 +5,7 @@ import type { DesktopApi, HostInfo } from '../../../shared/api';
 import { errorMessage } from './dom';
 import { summarizeResult } from './result';
 import { Router } from './router';
+import { mountUpdateBanner } from './update-banner';
 import { loadName, loadSettings, saveName, saveSettings } from './storage';
 import { namesFrom } from './screens/common';
 import { errorScreen } from './screens/error';
@@ -55,6 +56,7 @@ const SOFT_ERRORS: Partial<Record<ErrorCode, string>> = {
 
 export function startApp(root: HTMLElement, deps: AppDeps): void {
   const router = new Router(root);
+  mountUpdateBanner(deps.api, router);
   let name = loadName();
   let session: Session | null = null;
   let busy = false;
@@ -169,7 +171,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
           fail(
             'Разные версии игры',
             msg.message,
-            'Обновите 2Dots на обоих ноутбуках до одной версии.',
+            'Обновите 2Dots на обоих ноутбуках до одной версии: о новой версии игра сообщает на главном экране.',
           );
         } else if (msg.code === 'full') {
           fail(

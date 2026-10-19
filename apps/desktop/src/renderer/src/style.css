@@ -1055,3 +1055,94 @@ kbd {
 .host-wait .settings {
   width: min(460px, 100%);
 }
+
+/* ---------- обновление приложения ---------- */
+
+.update-banner {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(440px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev-2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  animation: update-in 220ms ease-out;
+}
+
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-banner.state-ready {
+  border-color: color-mix(in srgb, var(--ok) 60%, transparent);
+}
+
+.update-banner.state-downloading {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.update-text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.update-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.update-progress > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(100deg, var(--p1), var(--p2));
+  transition: width 300ms ease;
+}
+
+.btn.btn-sm {
+  min-height: 0;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+
+.update-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.update-close:hover {
+  color: var(--fg);
+  background: var(--line);
+}
+
+.update-close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+@keyframes update-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

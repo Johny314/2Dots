@@ -16,8 +16,14 @@ files:
 asar: true
 npmRebuild: false
 nodeGypRebuild: false
-# Публикацию делает GitHub Actions (softprops/action-gh-release), а не electron-builder.
-publish: null
+# Источник автообновлений (electron-updater): пишется в app-update.yml установщика,
+# а для Windows-установщика генерируется latest.yml. Сама публикация — в GitHub Actions
+# (softprops/action-gh-release); dist-скрипты запускают electron-builder с --publish never.
+publish:
+  provider: github
+  owner: Johny314
+  repo: 2Dots
+  releaseType: release
 afterPack: build/adhoc-sign.mjs
 
 mac:

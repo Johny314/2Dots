@@ -30,8 +30,11 @@ jobs:
           - os: windows-latest
             dist: dist:win
             artifact: 2dots-win
+            # latest.yml и .blockmap нужны автообновлению Windows-установщика.
             files: |
               apps/desktop/release/*.exe
+              apps/desktop/release/*.exe.blockmap
+              apps/desktop/release/latest.yml
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     defaults:
@@ -98,5 +101,7 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
           generate_release_notes: true
           fail_on_unmatched_files: true

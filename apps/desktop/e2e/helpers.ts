@@ -36,6 +36,7 @@ export async function launch(
   delete env.TWODOTS_MODE;
   delete env.TWODOTS_E2E;
   delete env.TWODOTS_PORT;
+  delete env.TWODOTS_MOCK_UPDATE;
   if (opts.mode) env.TWODOTS_MODE = opts.mode;
   Object.assign(env, opts.env);
   const app = await electron.launch({ args: [MAIN], env });

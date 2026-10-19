@@ -21,5 +21,16 @@ export function createMockApi(version: string): DesktopApi {
       ];
     },
     getVersion: () => version,
+    // ?mock=1&update=ready|available — показать баннер обновления без сети.
+    onUpdate: (handler) => {
+      const kind = new URLSearchParams(location.search).get('update');
+      if (kind === 'ready') handler({ state: 'ready', version: '9.9.9' });
+      else if (kind === 'available')
+        handler({ state: 'available', version: '9.9.9', mode: 'manual' });
+      else handler({ state: 'idle' });
+      return () => undefined;
+    },
+    installUpdate: () => undefined,
+    openReleasePage: () => undefined,
   };
 }

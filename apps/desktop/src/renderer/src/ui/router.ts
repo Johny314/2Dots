@@ -15,6 +15,7 @@ export interface Screen {
 
 export class Router {
   private current: Screen | null = null;
+  private readonly showListeners = new Set<(id: string) => void>();
 
   constructor(private readonly root: HTMLElement) {
     window.addEventListener('keydown', this.onKey);
@@ -31,6 +32,13 @@ export class Router {
     screen.el.classList.add('screen');
     this.root.replaceChildren(screen.el);
     screen.mounted?.();
+    for (const listener of this.showListeners) listener(screen.id);
+  }
+
+  /** Подписка на смену экрана. Возвращает отписку. */
+  onShow(listener: (id: string) => void): () => void {
+    this.showListeners.add(listener);
+    return () => this.showListeners.delete(listener);
   }
 
   dispose(): void {
