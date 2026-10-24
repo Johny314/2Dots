@@ -1,20 +1,16 @@
-import { DEFAULT_PORT, type ServerMsg } from '@2dots/core';
+import { DEFAULT_PORT } from '@2dots/core';
 import type { HostInfo } from '../../../../shared/api';
 import { dotsLogo, h } from '../dom';
 import type { Screen } from '../router';
 import { button } from './common';
-import { settingsPanel } from './settings';
 
 export interface HostWaitProps {
   info: HostInfo;
-  onConfig(patch: Record<string, unknown>): void;
   onCancel(): void;
 }
 
 export interface HostWaitScreen extends Screen {
   setStatus(text: string): void;
-  /** Лобби своей игры: показываем настройки, пока ждём соперника. */
-  updateLobby(lobby: Extract<ServerMsg, { t: 'lobby' }>): void;
 }
 
 export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
@@ -25,7 +21,6 @@ export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
     { class: 'status', role: 'status', testid: 'host-status' },
     'Запускаем игру…',
   );
-  const settings = settingsPanel({ isHost: true, onChange: props.onConfig });
 
   const addresses =
     ips.length > 0
@@ -52,7 +47,6 @@ export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
     ),
     addresses,
     status,
-    settings.el,
     h(
       'div',
       { class: 'actions actions-row' },
@@ -72,6 +66,5 @@ export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
     setStatus: (text) => {
       status.textContent = text;
     },
-    updateLobby: (lobby) => settings.update(lobby.gameId, lobby.config),
   };
 }

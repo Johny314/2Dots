@@ -1,5 +1,6 @@
-// Панель настроек мини-игры: хост переключает, гость видит, с какими правилами играем.
-// Переключатели берутся из GameModule.settings выбранной игры.
+// Настройки выбранной мини-игры — блок под выбором игры в лобби: хост переключает,
+// гость видит, с какими правилами играем. Переключатели — из GameModule.settings.
+import { getGame } from '@2dots/core';
 import { getGameModule } from '../../games';
 import { h } from '../dom';
 
@@ -17,12 +18,8 @@ export interface SettingsPanel {
 
 export function settingsPanel(props: SettingsPanelProps): SettingsPanel {
   const list = h('div', { class: 'settings-list' });
-  const el = h(
-    'section',
-    { class: 'panel stack settings', testid: 'settings', hidden: true },
-    h('h3', { class: 'subheading' }, props.isHost ? 'Настройки' : 'Настройки (выбирает хост)'),
-    list,
-  );
+  const title = h('h4', { class: 'settings-title' });
+  const el = h('div', { class: 'settings', testid: 'settings', hidden: true }, title, list);
 
   function update(gameId: string, config: unknown): void {
     const toggles = getGameModule(gameId)?.settings ?? [];
@@ -32,6 +29,8 @@ export function settingsPanel(props: SettingsPanelProps): SettingsPanel {
       return;
     }
     el.hidden = false;
+    const name = getGame(gameId)?.title ?? gameId;
+    title.textContent = props.isHost ? `Настройки: ${name}` : `Настройки: ${name} (выбирает хост)`;
     const focused = (document.activeElement as HTMLElement | null)?.dataset.testid;
     list.replaceChildren(
       ...toggles.map((t) => {

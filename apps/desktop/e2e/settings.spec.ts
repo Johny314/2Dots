@@ -26,7 +26,7 @@ const checked = (win: Page, key: string) => win.getByTestId(`setting-${key}`);
 
 test.describe.configure({ timeout: 180_000 });
 
-test('хост выключает туман и включает «Горячо-холодно»: гость видит, раунд идёт по новым правилам, встреча анимируется', async () => {
+test('хост в лобби выключает туман и включает «Горячо-холодно»: гость видит, раунд идёт по новым правилам, встреча анимируется', async () => {
   const port = randomPort();
   const host = await launch({ env: { TWODOTS_PORT: String(port), TWODOTS_E2E: '1' } });
   const guest = await launch({ env: { TWODOTS_E2E: '1' } });
@@ -39,19 +39,23 @@ test('хост выключает туман и включает «Горячо-
       timeout: 10_000,
     });
 
-    // Настройки видны уже на экране ожидания; у чистого профиля — значения по умолчанию.
-    await expect(hw.getByTestId('settings')).toBeVisible();
-    await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'true');
-    await expect(checked(hw, 'hotcold')).toHaveAttribute('aria-checked', 'false');
-    await checked(hw, 'fog').click();
-    await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'false');
+    // На экране ожидания настроек нет — они в лобби, у выбора игры.
+    await expect(hw.getByTestId('settings')).toHaveCount(0);
 
-    // Гость присоединяется и видит настройки хоста, но не может их менять.
     await gw.getByTestId('name-input').fill('Женя');
     await gw.getByTestId('join-game').click();
     await gw.getByTestId('ip-input').fill(`127.0.0.1:${port}`);
     await gw.getByTestId('ip-connect').click();
     for (const win of [hw, gw]) await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
+
+    // Настройки лабиринта под выбором игры; у чистого профиля — значения по умолчанию.
+    await expect(hw.getByTestId('settings')).toContainText('Настройки: Лабиринт');
+    await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'true');
+    await expect(checked(hw, 'hotcold')).toHaveAttribute('aria-checked', 'false');
+    await checked(hw, 'fog').click();
+    await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'false');
+
+    // Гость видит настройки хоста, но не может их менять.
     await expect(checked(gw, 'fog')).toHaveAttribute('aria-checked', 'false');
     await expect(checked(gw, 'fog')).toBeDisabled();
     await expect(checked(gw, 'hotcold')).toBeDisabled();

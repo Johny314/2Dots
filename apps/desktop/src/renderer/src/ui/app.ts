@@ -248,11 +248,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     }
     const s = openSession(client, true);
     clearRefs();
-    const wait = hostWaitScreen({
-      info,
-      onConfig: (patch) => changeSettings(s, patch),
-      onCancel: goHome,
-    });
+    const wait = hostWaitScreen({ info, onCancel: goHome });
     refs.hostWait = wait;
     router.show(wait);
     wait.setStatus('Подключаемся к своей игре…');
@@ -332,7 +328,6 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       case 'host-wait': {
         const opponent = msg.players.some((p) => p.id !== s.you && p.connected);
         if (opponent) showLobby(s);
-        else refs.hostWait?.updateLobby(msg);
         break;
       }
       case 'join':

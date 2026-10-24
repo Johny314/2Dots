@@ -1052,8 +1052,16 @@ kbd {
   box-shadow: var(--focus);
 }
 
-.host-wait .settings {
-  width: min(460px, 100%);
+.settings {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 /* ---------- обновление приложения ---------- */

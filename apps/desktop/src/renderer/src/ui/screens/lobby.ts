@@ -145,9 +145,9 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
       { class: 'panel stack' },
       h('h3', { class: 'subheading' }, isHost ? 'Мини-игра' : 'Мини-игра (выбирает хост)'),
       games,
+      settings.el,
       score,
     ),
-    settings.el,
     h('div', { class: 'actions actions-row' }, leaveBtn, readyBtn),
     readyHint,
   );
