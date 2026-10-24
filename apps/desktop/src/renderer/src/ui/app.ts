@@ -1,5 +1,6 @@
 // Контроллер экранов: связывает window.api (хост/поиск), GameClient и экраны.
 import {
+  DEFAULT_GAME_ID,
   getGame,
   type ErrorCode,
   type LobbyPlayer,
@@ -13,7 +14,14 @@ import type { DesktopApi, HostInfo } from '../../../shared/api';
 import { errorMessage } from './dom';
 import { Router } from './router';
 import { mountUpdateBanner } from './update-banner';
-import { loadName, loadSettings, saveName, saveSettings } from './storage';
+import {
+  loadLastGame,
+  loadName,
+  loadSettings,
+  saveLastGame,
+  saveName,
+  saveSettings,
+} from './storage';
 import { namesFrom } from './screens/common';
 import { errorScreen } from './screens/error';
 import { gameScreen, type GameScreen } from './screens/game';
@@ -242,7 +250,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     clearRefs();
     const wait = hostWaitScreen({
       info,
-      onConfig: (patch) => changeSettings(client, patch),
+      onConfig: (patch) => changeSettings(s, patch),
       onCancel: goHome,
     });
     refs.hostWait = wait;
@@ -257,15 +265,26 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
     }
     if (session !== s) return;
     refs.hostWait?.setStatus('Игра создана. Ждём подключения…');
-    // Хост продолжает с теми же правилами, что в прошлый раз.
-    const saved = loadSettings();
+    // Хост продолжает с той же игрой и правилами, что в прошлый раз.
+    const last = loadLastGame();
+    const gameId = last && getGame(last) ? last : DEFAULT_GAME_ID;
+    if (gameId !== DEFAULT_GAME_ID) client.selectGame(gameId);
+    const saved = loadSettings(gameId);
     if (saved) client.setConfig(saved);
     onLobby(s);
   }
 
-  function changeSettings(client: GameClient, patch: Record<string, unknown>): void {
-    saveSettings(patch);
-    client.setConfig(patch);
+  function changeSettings(s: Session, patch: Record<string, unknown>): void {
+    saveSettings(s.lobby?.gameId ?? DEFAULT_GAME_ID, patch);
+    s.client.setConfig(patch);
+  }
+
+  /** Смена игры хостом: сервер сбрасывает настройки на умолчания — возвращаем сохранённые. */
+  function selectGame(s: Session, gameId: string): void {
+    saveLastGame(gameId);
+    s.client.selectGame(gameId);
+    const saved = loadSettings(gameId);
+    if (saved) s.client.setConfig(saved);
   }
 
   // ---------- присоединиться ----------
@@ -340,8 +359,8 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       {
         you: s.you,
         onReady: (ready) => client.setReady(ready),
-        onSelect: (id) => client.selectGame(id),
-        onConfig: (patch) => changeSettings(client, patch),
+        onSelect: (id) => selectGame(s, id),
+        onConfig: (patch) => changeSettings(s, patch),
         onLeave: goHome,
       },
       s.lobby,

@@ -39,16 +39,10 @@ test('хост выключает туман и включает «Горячо-
       timeout: 10_000,
     });
 
-    // Настройки видны уже на экране ожидания. Приводим к значениям по умолчанию
-    // (localStorage общий между прогонами), затем выключаем туман.
+    // Настройки видны уже на экране ожидания; у чистого профиля — значения по умолчанию.
     await expect(hw.getByTestId('settings')).toBeVisible();
-    if ((await checked(hw, 'fog').getAttribute('aria-checked')) === 'false') {
-      await checked(hw, 'fog').click();
-    }
-    if ((await checked(hw, 'hotcold').getAttribute('aria-checked')) === 'true') {
-      await checked(hw, 'hotcold').click();
-    }
     await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'true');
+    await expect(checked(hw, 'hotcold')).toHaveAttribute('aria-checked', 'false');
     await checked(hw, 'fog').click();
     await expect(checked(hw, 'fog')).toHaveAttribute('aria-checked', 'false');
 
@@ -104,8 +98,6 @@ test('хост выключает туман и включает «Горячо-
       );
     }
   } finally {
-    // Вернуть настройки по умолчанию в общий localStorage для других прогонов.
-    await hw.evaluate(() => localStorage.removeItem('twodots.settings')).catch(() => undefined);
     await Promise.all([host.app.close(), guest.app.close()]);
   }
 });

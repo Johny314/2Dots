@@ -5,6 +5,12 @@ import { IPC, RELEASES_URL, type UpdateStatus } from '../shared/api';
 import { discoverHosts, hostStart, hostStop, isHosting } from './host';
 import { fetchLatestVersion, Updater, updateMode } from './updater';
 
+// TWODOTS_USER_DATA — отдельная папка данных (localStorage и т. п.) для каждого экземпляра в e2e,
+// чтобы запомненные игра и настройки одного теста не влияли на другой. Только dev/e2e.
+if (!app.isPackaged && process.env.TWODOTS_USER_DATA) {
+  app.setPath('userData', process.env.TWODOTS_USER_DATA);
+}
+
 const updatesMode = updateMode({
   platform: process.platform,
   isPackaged: app.isPackaged,

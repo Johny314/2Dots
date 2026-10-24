@@ -1,5 +1,7 @@
 // Общие помощники e2e: запуск экземпляра приложения и скриншоты.
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const MAIN = join(import.meta.dirname, '../out/main/index.js');
@@ -37,6 +39,8 @@ export async function launch(
   delete env.TWODOTS_E2E;
   delete env.TWODOTS_PORT;
   delete env.TWODOTS_MOCK_UPDATE;
+  // Свой профиль на каждый запуск: localStorage (имя, настройки, последняя игра) не протекает между тестами.
+  env.TWODOTS_USER_DATA = mkdtempSync(join(tmpdir(), '2dots-e2e-'));
   if (opts.mode) env.TWODOTS_MODE = opts.mode;
   Object.assign(env, opts.env);
   const app = await electron.launch({ args: [MAIN], env });
