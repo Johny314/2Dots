@@ -51,7 +51,7 @@ afterEach(async () => {
 describe('лобби', () => {
   it('выдаёт p1 и p2 и рассылает лобби с выбранной игрой', async () => {
     const { port } = await start();
-    const a = await join(port, 'Аня');
+    const a = await join(port, 'Влада');
     expect(a.you).toBe('p1');
     expect(a.status).toBe('connected');
 
@@ -62,7 +62,7 @@ describe('лобби', () => {
     expect(lobby.gameId).toBe('counter');
     expect(lobby.match).toEqual({ p1: 0, p2: 0 });
     expect(lobby.players).toEqual([
-      { id: 'p1', name: 'Аня', ready: false, connected: true },
+      { id: 'p1', name: 'Влада', ready: false, connected: true },
       { id: 'p2', name: 'Боря', ready: false, connected: true },
     ]);
 

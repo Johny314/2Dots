@@ -8,7 +8,7 @@ test('мок: хост выбирает «Трон» → раунд → авар
   const { app, win } = await launch({ mode: 'mock' });
   try {
     await expect(screen(win, 'home')).toBeVisible();
-    await win.getByTestId('name-input').fill('Аня');
+    await win.getByTestId('name-input').fill('Влада');
     await win.getByTestId('create-game').click();
     await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
 

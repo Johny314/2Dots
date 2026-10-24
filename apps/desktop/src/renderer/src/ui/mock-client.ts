@@ -223,7 +223,7 @@ export class MockGameClient implements GameClient {
     const game = getGame(this.gameId);
     if (!game) return;
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const config = this.config;
+    const config = mockConfig(game, this.config, this.opts.roundMs);
     this.countingDown = true;
     this.emit('start', {
       t: 'start',
@@ -260,7 +260,10 @@ export class MockGameClient implements GameClient {
       this.emit('state', { t: 'state', tick: round.tick, state: structuredClone(round.state) });
       const result = round.game.result(round.state);
       if (result !== null) this.finish(result);
-      else if (round.elapsedMs >= this.opts.roundMs) this.finish(fakeResult(round));
+      else if (round.game.id === 'maze' && round.elapsedMs >= this.opts.roundMs) {
+        // Бот лабиринта бродит случайно и редко встречается — заканчиваем поддельным итогом.
+        this.finish(fakeResult(round));
+      }
     }, dt);
   }
 
@@ -331,6 +334,16 @@ function winnerOf(result: unknown): PlayerId | null {
 }
 
 /** Результат «как у лабиринта», если раунд не закончился сам (например, у заглушки логики). */
+/**
+ * Игры с таймером (территория, ключ и дверь) в моке идут roundMs, чтобы раунд закончился
+ * по-настоящему — с финальной анимацией и подробным итогом.
+ */
+function mockConfig(game: AnyMiniGame, config: unknown, roundMs: number): unknown {
+  if (game.id === 'maze' || typeof config !== 'object' || config === null) return config;
+  if (!('timeLimitMs' in config)) return config;
+  return { ...config, timeLimitMs: roundMs };
+}
+
 function fakeResult(round: Round): unknown {
   // Не лабиринт: только победитель (кооператив — справились или нет).
   if (round.game.id !== 'maze') {

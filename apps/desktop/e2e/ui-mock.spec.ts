@@ -12,7 +12,7 @@ test('мок: хост — главное → ожидание → лобби �
 
   await expect(screen(win, 'home')).toBeVisible();
   await expect(win.getByTestId('mode')).toContainText('режим: mock');
-  await win.getByTestId('name-input').fill('Аня');
+  await win.getByTestId('name-input').fill('Влада');
   await shot(win, '01-home');
 
   // Enter в поле имени = «Создать игру»
@@ -23,7 +23,7 @@ test('мок: хост — главное → ожидание → лобби �
 
   // соперник подключается сам
   await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
-  await expect(win.getByTestId('player-p1')).toContainText('Аня');
+  await expect(win.getByTestId('player-p1')).toContainText('Влада');
   await expect(win.getByTestId('player-p2')).toContainText('Соперник');
   await expect(win.getByTestId('game-maze')).toBeEnabled();
   await shot(win, '03-lobby');
@@ -133,7 +133,7 @@ test('мок: гость — присоединение, ошибки подкл
 
 test('мок: соперник отключился во время раунда → лобби с уведомлением', async () => {
   const { app, win } = await launch('mock');
-  await win.getByTestId('name-input').fill('Аня');
+  await win.getByTestId('name-input').fill('Влада');
   await win.getByTestId('create-game').click();
   await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
   await win.getByTestId('ready').click();

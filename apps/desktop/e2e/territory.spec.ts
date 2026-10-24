@@ -7,7 +7,7 @@ test.describe.configure({ timeout: 60_000 });
 test('мок: хост выбирает «Территорию», меняет настройку, играет раунд', async () => {
   const { app, win } = await launch({ mode: 'mock' });
   try {
-    await win.getByTestId('name-input').fill('Аня');
+    await win.getByTestId('name-input').fill('Влада');
     await win.getByTestId('create-game').click();
     await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
     // Лобби перерисовывается при подключении соперника — ждём его до выбора игры.

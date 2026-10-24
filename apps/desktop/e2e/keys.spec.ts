@@ -17,7 +17,7 @@ async function setToggle(win: Page, key: string, on: boolean): Promise<void> {
 
 async function openKeysLobby(win: Page): Promise<void> {
   await expect(screen(win, 'home')).toBeVisible();
-  await win.getByTestId('name-input').fill('Аня');
+  await win.getByTestId('name-input').fill('Влада');
   await win.getByTestId('create-game').click();
   await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
   await expect(win.getByTestId('player-p2')).toContainText('Соперник', { timeout: 10_000 });
@@ -63,7 +63,9 @@ test('ключ и дверь (мок): лобби «вместе» → игра 
     await expect(screen(win, 'result')).toBeVisible({ timeout: 15_000 });
     await expect(win.getByTestId('result-headline')).toHaveText(/Вы справились!|Не успели/);
     await expect(win.getByTestId('result-team')).toBeVisible();
-    await expect(win.getByTestId('result-team')).toHaveText(/Выбрались|Не успели выбраться/);
+    await expect(win.getByTestId('result-team')).toHaveText(
+      /Выбрались|Не успели выбраться|Открыто дверей \d+\/\d+/,
+    );
     await expect(win.getByTestId('result-match')).toHaveCount(0);
     await shot(win, 'keys-result');
   } finally {

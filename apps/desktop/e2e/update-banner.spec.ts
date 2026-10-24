@@ -26,7 +26,7 @@ test('новая версия для ручной установки: «Скач
     await expect(win.getByTestId('update-download')).toBeVisible();
 
     // Создать игру → соперник-мок подключается → оба готовы → игра.
-    await win.getByTestId('name-input').fill('Аня');
+    await win.getByTestId('name-input').fill('Влада');
     await win.getByTestId('create-game').click();
     await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
     await expect(banner).toBeVisible();

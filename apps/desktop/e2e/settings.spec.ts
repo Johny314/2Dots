@@ -33,7 +33,7 @@ test('хост выключает туман и включает «Горячо-
   const hw = host.win;
   const gw = guest.win;
   try {
-    await hw.getByTestId('name-input').fill('Аня');
+    await hw.getByTestId('name-input').fill('Влада');
     await hw.getByTestId('create-game').click();
     await expect(hw.getByTestId('host-status')).toContainText('Ждём подключения', {
       timeout: 10_000,

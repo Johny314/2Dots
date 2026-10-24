@@ -40,9 +40,9 @@ test('два экземпляра: создать → присоединитьс
     const gw = guest.win;
 
     // Версия в подвале — из package.json приложения, а не версия Electron.
-    await expect(hw.getByTestId('mode')).toContainText('версия 0.2.0');
+    await expect(hw.getByTestId('mode')).toContainText('версия 0.3.0');
 
-    await createGame(hw, 'Аня');
+    await createGame(hw, 'Влада');
     await expect(hw.getByTestId('host-ips')).toBeVisible();
     await setAutoplay(hw, true);
 
@@ -56,7 +56,7 @@ test('два экземпляра: создать → присоединитьс
     // Лобби у обоих, с настоящими именами.
     for (const win of [hw, gw]) {
       await expect(screen(win, 'lobby')).toBeVisible({ timeout: 10_000 });
-      await expect(win.getByTestId('player-p1')).toContainText('Аня');
+      await expect(win.getByTestId('player-p1')).toContainText('Влада');
       await expect(win.getByTestId('player-p2')).toContainText('Женя');
     }
     await expect(hw.getByTestId('game-maze')).toBeEnabled();
@@ -159,7 +159,7 @@ test('приложение против tools/bot.ts доигрывает рау
       bot.on('exit', (code) => resolve(code));
     });
   try {
-    await createGame(win, 'Аня');
+    await createGame(win, 'Влада');
     const exited = spawnBot();
 
     await expect(screen(win, 'lobby')).toBeVisible({ timeout: 20_000 });

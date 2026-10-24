@@ -129,8 +129,8 @@ describe('hostStart / hostStop', () => {
 
   it('mDNS-публикация идёт под именем игрока', async () => {
     const { host, deps } = setup();
-    await host.hostStart('  Аня  ');
-    expect(deps.publishHost).toHaveBeenCalledWith('Аня', 40000);
+    await host.hostStart('  Влада  ');
+    expect(deps.publishHost).toHaveBeenCalledWith('Влада', 40000);
   });
 
   it('повторный и параллельный hostStart не поднимают второй сервер', async () => {
