@@ -32,7 +32,7 @@ export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
       : h(
           'p',
           { class: 'warning', testid: 'host-ips' },
-          'Не нашли адрес в локальной сети. Проверьте, что ноутбук подключён к Wi‑Fi.',
+          'Не нашли адрес в локальной сети. Проверьте, что компьютер подключён к сети (Wi‑Fi или кабель).',
         );
 
   const el = h(
@@ -43,7 +43,7 @@ export function hostWaitScreen(props: HostWaitProps): HostWaitScreen {
     h(
       'p',
       { class: 'muted' },
-      'На втором ноутбуке нажмите «Присоединиться» и выберите эту игру или введите адрес:',
+      'На втором компьютере нажмите «Присоединиться» и выберите эту игру или введите адрес:',
     ),
     addresses,
     status,

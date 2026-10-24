@@ -62,7 +62,8 @@ function hasOpponent(lobby: LobbyMsg | null, you: PlayerId | null): boolean {
   return !!lobby?.players.some((p) => p.id !== you && p.connected);
 }
 
-const NETWORK_HINT = 'Проверьте, что оба ноутбука в одной Wi‑Fi сети, и попробуйте снова.';
+const NETWORK_HINT =
+  'Проверьте, что оба компьютера в одной сети (Wi‑Fi или кабель к тому же роутеру), и попробуйте снова.';
 
 const SOFT_ERRORS: Partial<Record<ErrorCode, string>> = {
   not_host: 'Игру и настройки выбирает хост',
@@ -197,7 +198,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
           fail(
             'Разные версии игры',
             msg.message,
-            'Обновите 2Dots на обоих ноутбуках до одной версии: о новой версии игра сообщает на главном экране.',
+            'Обновите 2Dots на обоих компьютерах до одной версии: о новой версии игра сообщает на главном экране.',
           );
         } else if (msg.code === 'full') {
           fail(
