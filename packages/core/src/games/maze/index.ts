@@ -1,11 +1,21 @@
 import type { MiniGame, PlayerId } from '../../minigame';
 import { generateMaze } from './generate';
-import { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, visibleCells } from './grid';
+import { DIRS, bfsDistances, visibleCells } from './grid';
+import { advance, haveMet, makePlayer, startCell, substeps } from './movement';
 import type { Dir, Maze, MazeConfig, MazeInput, MazePlayer, MazeResult, MazeState } from './types';
 
 export * from './types';
 export { generateMaze } from './generate';
 export { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, inBounds, visibleCells } from './grid';
+export {
+  MAX_SUBSTEP_CELLS,
+  advance,
+  haveMet,
+  makePlayer,
+  startCell,
+  substeps,
+  type Passable,
+} from './movement';
 /** Синоним visibleCells (название из docs/PLAN.md). */
 export const fogVisible = visibleCells;
 
@@ -17,81 +27,6 @@ const FOG_RADIUS_RANGE = [1, 8] as const;
 /** Расстояние по проходам лабиринта между двумя клетками (-1 — недостижимо). */
 export function pathDistance(maze: Maze, from: [number, number], to: [number, number]): number {
   return bfsDistances(maze, from[0], from[1])[to[1] * maze.width + to[0]] ?? -1;
-}
-
-/** Максимальный путь игрока за один подшаг тика — защита от «проскока» навстречу. */
-const MAX_SUBSTEP_CELLS = 0.5;
-
-/** Стартовые клетки: p1 — левый верхний угол, p2 — правый нижний. */
-export function startCell(
-  maze: Pick<Maze, 'width' | 'height'>,
-  player: PlayerId,
-): [number, number] {
-  return player === 'p1' ? [0, 0] : [maze.width - 1, maze.height - 1];
-}
-
-function makePlayer(x: number, y: number, width: number): MazePlayer {
-  return { x, y, dir: null, queued: null, moveProgress: 0, visited: [y * width + x], steps: 0 };
-}
-
-/**
- * Направление на перекрёстке (в центре клетки): удерживаемое, если туда можно пройти;
- * иначе продолжаем текущее (буфер поворота, как в Pac-Man); ничего не удерживается — стоп.
- */
-function chooseDir(maze: Maze, p: MazePlayer): Dir | null {
-  if (p.queued === null) return null;
-  if (canMove(maze, p.x, p.y, p.queued)) return p.queued;
-  if (p.dir !== null && canMove(maze, p.x, p.y, p.dir)) return p.dir;
-  return null;
-}
-
-/**
- * Мгновенный разворот: удерживается направление, противоположное движению, посреди перехода
- * A → B. Игрок разворачивается на месте: теперь он идёт B → A с прогрессом 1 − moveProgress
- * (физическая позиция не меняется). Клетка B ещё не достигнута — в visited и steps не попадает.
- */
-function reverseIfOpposite(p: MazePlayer): void {
-  if (p.dir === null || p.moveProgress <= 0 || p.queued !== OPPOSITE[p.dir]) return;
-  const [dx, dy] = DELTA[p.dir];
-  p.x += dx;
-  p.y += dy;
-  p.dir = p.queued;
-  p.moveProgress = 1 - p.moveProgress;
-}
-
-/** Продвигает игрока на budget клеток. Повороты — в центре клетки, разворот — сразу. */
-function advance(maze: Maze, p: MazePlayer, budget: number): void {
-  reverseIfOpposite(p);
-  let left = budget;
-  while (left > 0) {
-    if (p.moveProgress === 0) {
-      p.dir = chooseDir(maze, p);
-      if (p.dir === null) return;
-    }
-    const dir = p.dir as Dir;
-    const need = 1 - p.moveProgress;
-    if (left < need) {
-      p.moveProgress += left;
-      return;
-    }
-    left -= need;
-    const [dx, dy] = DELTA[dir];
-    p.x += dx;
-    p.y += dy;
-    p.moveProgress = 0;
-    p.steps++;
-    const cell = p.y * maze.width + p.x;
-    if (!p.visited.includes(cell)) p.visited.push(cell);
-  }
-}
-
-/** Встреча: одна клетка или соседние клетки без стены между ними. */
-function haveMet(maze: Maze, a: MazePlayer, b: MazePlayer): boolean {
-  if (a.x === b.x && a.y === b.y) return true;
-  return DIRS.some((dir) => {
-    const [dx, dy] = DELTA[dir];
-    return a.x + dx === b.x && a.y + dy === b.y && canMove(maze, a.x, a.y, dir);
-  });
 }
 
 function scoreOf(state: MazeState, player: PlayerId, distFromStart: number[]): number {
@@ -143,6 +78,8 @@ function finish(state: MazeState, reason: MazeResult['reason']): MazeResult {
 export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = {
   id: 'maze',
   title: 'Лабиринт',
+  description: 'Найдите друг друга. Очки — за исследованные клетки',
+  kind: 'versus',
   tickHz: 30,
 
   defaultConfig: () => ({
@@ -214,11 +151,9 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
 
     // Движение дробится на подшаги ≤ MAX_SUBSTEP_CELLS, встреча проверяется после каждого:
     // так игроки не проскочат друг сквозь друга даже при большом dt.
-    const budget = Math.max(0, (state.config.speedCellsPerSec * dtMs) / 1000);
-    const substeps = Math.max(1, Math.ceil(budget / MAX_SUBSTEP_CELLS));
-    const chunk = budget / substeps;
+    const { chunk, count } = substeps(state.config.speedCellsPerSec, dtMs);
     const { p1, p2 } = state.players;
-    for (let i = 0; i < substeps; i++) {
+    for (let i = 0; i < count; i++) {
       advance(state.maze, p1, chunk);
       advance(state.maze, p2, chunk);
       if (haveMet(state.maze, p1, p2)) {

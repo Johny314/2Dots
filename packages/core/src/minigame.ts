@@ -11,6 +11,13 @@ export const PLAYER_IDS: readonly PlayerId[] = ['p1', 'p2'];
 export interface MiniGame<Config, State, Input, Result> {
   readonly id: string;
   readonly title: string;
+  /** Одна строка для выбора игры в лобби. */
+  readonly description: string;
+  /**
+   * versus — друг против друга: result.winner = 'p1' | 'p2' | 'draw', победа даёт очко матча.
+   * coop — вместе: result.winner = 'team' (справились) | 'none' (нет); счёт матча не ведётся.
+   */
+  readonly kind: 'versus' | 'coop';
   readonly tickHz: number;
   defaultConfig(): Config;
   init(seed: number, players: readonly PlayerId[], config: Config): State;

@@ -1,9 +1,16 @@
 // Контроллер экранов: связывает window.api (хост/поиск), GameClient и экраны.
-import type { ErrorCode, LobbyPlayer, PlayerId, ServerMsg } from '@2dots/core';
+import {
+  getGame,
+  type ErrorCode,
+  type LobbyPlayer,
+  type PlayerId,
+  type ServerMsg,
+} from '@2dots/core';
+import { basicSummary } from '../games/types';
+import { getGameModule } from '../games';
 import type { GameClient } from '@2dots/net/client';
 import type { DesktopApi, HostInfo } from '../../../shared/api';
 import { errorMessage } from './dom';
-import { summarizeResult } from './result';
 import { Router } from './router';
 import { mountUpdateBanner } from './update-banner';
 import { loadName, loadSettings, saveName, saveSettings } from './storage';
@@ -31,6 +38,8 @@ interface Session {
   hosting: boolean;
   you: PlayerId | null;
   lobby: LobbyMsg | null;
+  /** Игра текущего (последнего) раунда — из start. */
+  gameId: string | null;
   closed: boolean;
   offs: (() => void)[];
 }
@@ -128,7 +137,15 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
   }
 
   function openSession(client: GameClient, hosting: boolean): Session {
-    const s: Session = { client, hosting, you: null, lobby: null, closed: false, offs: [] };
+    const s: Session = {
+      client,
+      hosting,
+      you: null,
+      lobby: null,
+      gameId: null,
+      closed: false,
+      offs: [],
+    };
     session = s;
     const live = () => session === s && !s.closed;
 
@@ -143,6 +160,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
         if (!live() || !s.you) return;
         // Сервер шлёт lobby со сброшенной готовностью перед start; на всякий случай сбрасываем и тут.
         if (s.lobby) s.lobby = withReady(s.lobby, () => false);
+        s.gameId = msg.gameId;
         showGame(s, msg);
       }),
       client.on('state', (msg) => {
@@ -352,13 +370,15 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
 
   function showResult(s: Session, msg: Extract<ServerMsg, { t: 'end' }>): void {
     if (!s.you) return;
+    const gameId = s.gameId ?? s.lobby?.gameId ?? '';
     // Счёт матча из end — lobby с ним придёт только после следующего изменения.
     if (s.lobby) s.lobby = { ...s.lobby, match: msg.match };
     clearRefs();
     const client = s.client;
     const screen = resultScreen({
       you: s.you,
-      summary: summarizeResult(msg.result),
+      summary: (getGameModule(gameId)?.summarize ?? basicSummary)(msg.result),
+      coop: getGame(gameId)?.kind === 'coop',
       names: namesFrom(s.lobby?.players),
       match: msg.match,
       matchWinner: msg.matchWinner,

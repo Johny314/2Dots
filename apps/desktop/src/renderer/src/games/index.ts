@@ -1,7 +1,11 @@
-import { mountMazeView } from './maze/view';
-import type { MountGameView } from './types';
+import { mazeModule } from './maze';
+import type { GameModule } from './types';
 
-/** Рендереры мини-игр по gameId. */
-export const GAME_VIEWS: Readonly<Record<string, MountGameView>> = {
-  maze: mountMazeView,
+/** Мини-игры на стороне renderer по gameId (id совпадает с MiniGame.id из core). */
+export const GAME_MODULES: Readonly<Record<string, GameModule>> = {
+  maze: mazeModule,
 };
+
+export function getGameModule(id: string): GameModule | undefined {
+  return Object.hasOwn(GAME_MODULES, id) ? GAME_MODULES[id] : undefined;
+}

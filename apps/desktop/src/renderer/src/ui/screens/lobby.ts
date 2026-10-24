@@ -1,4 +1,4 @@
-import { GAMES, MATCH_WINS, PLAYER_IDS, type PlayerId, type ServerMsg } from '@2dots/core';
+import { GAMES, getGame, MATCH_WINS, PLAYER_IDS, type PlayerId, type ServerMsg } from '@2dots/core';
 import { h } from '../dom';
 import type { Screen } from '../router';
 import { button, matchScore, playerDot, setButtonLabel } from './common';
@@ -97,6 +97,8 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
             disabled: !isHost,
           },
           h('span', { class: 'game-title' }, g.title),
+          h('span', { class: 'game-desc' }, g.description),
+          g.kind === 'coop' ? h('span', { class: 'game-badge' }, 'вместе') : null,
         );
         item.addEventListener('click', () => {
           if (isHost && g.id !== lobby.gameId) props.onSelect(g.id);
@@ -107,9 +109,14 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
 
     settings.update(lobby.gameId, lobby.config);
 
+    // Кооператив: играете вместе — счёт матча не ведётся.
     score.replaceChildren(
-      h('span', { class: 'muted small' }, `Матч до ${MATCH_WINS} побед`),
-      matchScore(lobby.match, 'lobby-match'),
+      ...(getGame(lobby.gameId)?.kind === 'coop'
+        ? [h('span', { class: 'muted small' }, 'Кооператив: играете вместе против таймера')]
+        : [
+            h('span', { class: 'muted small' }, `Матч до ${MATCH_WINS} побед`),
+            matchScore(lobby.match, 'lobby-match'),
+          ]),
     );
 
     const mine = me();

@@ -1,12 +1,14 @@
 import { MATCH_WINS, PLAYER_IDS, type PlayerId } from '@2dots/core';
 import { dotsLogo, h } from '../dom';
-import type { RoundSummary } from '../result';
+import type { RoundSummary } from '../../games/types';
 import type { Screen } from '../router';
 import { button, matchScore, playerDot, type Names } from './common';
 
 export interface ResultProps {
   you: PlayerId;
   summary: RoundSummary;
+  /** Кооперативная игра: итог общий, счёт матча не показывается. */
+  coop: boolean;
   names: Names;
   match: Partial<Record<PlayerId, number>>;
   matchWinner: PlayerId | null;
@@ -26,6 +28,12 @@ export function resultScreen(props: ResultProps): ResultScreen {
   if (matchWinner) {
     headline = matchWinner === you ? 'Матч выигран!' : `Победа в матче: ${names[matchWinner]}`;
     tone = matchWinner === you ? 'win' : 'lose';
+  } else if (summary.winner === 'team') {
+    headline = 'Вы справились!';
+    tone = 'win';
+  } else if (summary.winner === 'none') {
+    headline = 'Не успели';
+    tone = 'lose';
   } else if (summary.winner === 'draw') {
     headline = 'Ничья';
     tone = 'draw';
@@ -37,12 +45,7 @@ export function resultScreen(props: ResultProps): ResultScreen {
     tone = 'draw';
   }
 
-  const reason =
-    summary.reason === 'met'
-      ? 'Вы встретились'
-      : summary.reason === 'timeout'
-        ? 'Время вышло'
-        : null;
+  const reason = summary.reason;
 
   const rows = PLAYER_IDS.map((id) => {
     const pct = summary.percent[id];
@@ -73,9 +76,13 @@ export function resultScreen(props: ResultProps): ResultScreen {
     );
   });
 
-  const unknown = PLAYER_IDS.every((id) => summary.percent[id] === null)
-    ? h('p', { class: 'muted small' }, 'Подробный счёт для этой игры недоступен')
-    : null;
+  const noDetails = PLAYER_IDS.every((id) => summary.label[id] === null);
+  // Кооператив с общим итогом: одна строка вместо строк по игрокам.
+  const body = summary.teamLabel
+    ? [h('p', { class: 'team-result', testid: 'result-team' }, summary.teamLabel)]
+    : noDetails
+      ? [h('p', { class: 'muted small' }, 'Подробный счёт для этой игры недоступен')]
+      : rows;
 
   const againLabel = matchWinner ? 'Новый матч' : 'Ещё раз';
   const againBtn = button(againLabel, {
@@ -94,17 +101,19 @@ export function resultScreen(props: ResultProps): ResultScreen {
     h('h2', { class: 'heading result-headline', testid: 'result-headline' }, headline),
     reason ? h('p', { class: 'muted' }, reason) : null,
     notice,
-    h('section', { class: 'panel stack' }, ...rows, unknown),
-    h(
-      'div',
-      { class: 'lobby-match' },
-      h(
-        'span',
-        { class: 'muted small' },
-        matchWinner ? 'Итог матча' : `Счёт матча · до ${MATCH_WINS} побед`,
-      ),
-      matchScore(props.match, 'result-match'),
-    ),
+    h('section', { class: 'panel stack' }, ...body),
+    props.coop
+      ? null
+      : h(
+          'div',
+          { class: 'lobby-match' },
+          h(
+            'span',
+            { class: 'muted small' },
+            matchWinner ? 'Итог матча' : `Счёт матча · до ${MATCH_WINS} побед`,
+          ),
+          matchScore(props.match, 'result-match'),
+        ),
     h(
       'div',
       { class: 'actions actions-row' },

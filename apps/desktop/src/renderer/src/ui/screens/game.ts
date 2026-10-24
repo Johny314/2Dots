@@ -1,5 +1,5 @@
 import { getGame, type PlayerId } from '@2dots/core';
-import { GAME_VIEWS } from '../../games';
+import { getGameModule } from '../../games';
 import type { GameView } from '../../games/types';
 import { errorMessage, h } from '../dom';
 import type { Screen } from '../router';
@@ -50,7 +50,7 @@ export function gameScreen(props: GameProps): GameScreen {
   // Рендерер мини-игры (трек E) или заглушка.
   let view: GameView | null = null;
   let stubInfo: HTMLElement | null = null;
-  const mount = GAME_VIEWS[props.gameId];
+  const mount = getGameModule(props.gameId)?.mount;
   if (mount) {
     try {
       view = mount(canvas, {

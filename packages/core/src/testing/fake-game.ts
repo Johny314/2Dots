@@ -19,6 +19,8 @@ export interface CounterResult {
 export const counterGame: MiniGame<CounterConfig, CounterState, CounterInput, CounterResult> = {
   id: 'counter',
   title: 'Счётчик (тест)',
+  description: 'Кто первым наберёт очки',
+  kind: 'versus',
   tickHz: 30,
   defaultConfig: () => ({ target: 5 }),
   init: (_seed, _players, config) => ({ tick: 0, target: config.target, counts: { p1: 0, p2: 0 } }),

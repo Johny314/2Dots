@@ -109,6 +109,13 @@ getVersion(): string // версия из apps/desktop/package.json (не Electr
 
 Переменные окружения main-процесса: `TWODOTS_PORT` — порт хоста (по умолчанию `DEFAULT_PORT` 47777, `0` — случайный; нужен для двух экземпляров на одной машине), `TWODOTS_MODE=mock|local` — режим renderer, `TWODOTS_E2E=1` — тестовые хуки renderer (`window.__twodots`).
 
+## Как добавить мини-игру
+
+1. **core** — `packages/core/src/games/<id>/`: реализация `MiniGame` (`id`, `title`, `description` для лобби, `kind: 'versus' | 'coop'`, `parseConfig`, `parseInput`, детерминированные `init/tick/result`, только `Rng`). Регистрация — строка в `packages/core/src/registry.ts`. Игры на лабиринте берут генерацию и движение из `games/maze` (`generateMaze`, `advance`, `substeps`, `makePlayer`, `haveMet`, `Passable` для своих препятствий).
+2. **renderer** — `apps/desktop/src/renderer/src/games/<id>/`: `GameModule` = `mount` (Canvas, ввод, HUD, необязательный `outroMs`), `summarize(result) → RoundSummary` для экрана результата, `settings` — переключатели для панели настроек лобби. Регистрация — строка в `games/index.ts`.
+3. Результат раунда: versus — `winner: 'p1' | 'p2' | 'draw'` (победа даёт очко матча); coop — `winner: 'team' | 'none'`, счёт матча не ведётся, экран результата показывает `RoundSummary.teamLabel`.
+4. Сервер, протокол, лобби, отсчёт и экран результата менять не нужно.
+
 ## Обновление приложения
 
 Источник — GitHub Releases публичного репозитория `Johny314/2Dots` (`apps/desktop/src/main/updater.ts`).

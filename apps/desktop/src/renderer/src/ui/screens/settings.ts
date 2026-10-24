@@ -1,5 +1,6 @@
 // Панель настроек мини-игры: хост переключает, гость видит, с какими правилами играем.
-import { maze } from '@2dots/core';
+// Переключатели берутся из GameModule.settings выбранной игры.
+import { getGameModule } from '../../games';
 import { h } from '../dom';
 
 export interface SettingsPanelProps {
@@ -14,37 +15,6 @@ export interface SettingsPanel {
   update(gameId: string, config: unknown): void;
 }
 
-interface Toggle {
-  key: string;
-  title: string;
-  description: string;
-  /** Включён ли переключатель при данных настройках. */
-  isOn(config: maze.MazeConfig): boolean;
-  /** Что отправить хосту при переключении в on. */
-  patch(on: boolean): Record<string, unknown>;
-}
-
-const MAZE_TOGGLES: Toggle[] = [
-  {
-    key: 'fog',
-    title: 'Туман войны',
-    description: `Видно только ${maze.DEFAULT_FOG_RADIUS} клетки вокруг себя и уже пройденный путь`,
-    isOn: (c) => c.fogRadius !== null,
-    patch: (on) => ({ fogRadius: on ? maze.DEFAULT_FOG_RADIUS : null }),
-  },
-  {
-    key: 'hotcold',
-    title: 'Горячо-холодно',
-    description: 'Шкала и цвет экрана подсказывают, насколько близко соперник',
-    isOn: (c) => c.hotCold,
-    patch: (on) => ({ hotCold: on }),
-  },
-];
-
-function isMazeConfig(config: unknown): config is maze.MazeConfig {
-  return typeof config === 'object' && config !== null && 'fogRadius' in config;
-}
-
 export function settingsPanel(props: SettingsPanelProps): SettingsPanel {
   const list = h('div', { class: 'settings-list' });
   const el = h(
@@ -55,14 +25,16 @@ export function settingsPanel(props: SettingsPanelProps): SettingsPanel {
   );
 
   function update(gameId: string, config: unknown): void {
-    if (gameId !== maze.mazeGame.id || !isMazeConfig(config)) {
+    const toggles = getGameModule(gameId)?.settings ?? [];
+    if (toggles.length === 0 || config === undefined) {
       el.hidden = true;
+      list.replaceChildren();
       return;
     }
     el.hidden = false;
     const focused = (document.activeElement as HTMLElement | null)?.dataset.testid;
     list.replaceChildren(
-      ...MAZE_TOGGLES.map((t) => {
+      ...toggles.map((t) => {
         const on = t.isOn(config);
         const titleId = `setting-${t.key}-title`;
         const sw = h(

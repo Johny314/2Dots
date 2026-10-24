@@ -332,6 +332,11 @@ function winnerOf(result: unknown): PlayerId | null {
 
 /** Результат «как у лабиринта», если раунд не закончился сам (например, у заглушки логики). */
 function fakeResult(round: Round): unknown {
+  // Не лабиринт: только победитель (кооператив — справились или нет).
+  if (round.game.id !== 'maze') {
+    if (round.game.kind === 'coop') return { winner: Math.random() < 0.5 ? 'team' : 'none' };
+    return { winner: Math.random() < 0.5 ? 'p1' : 'p2' };
+  }
   const s = round.state as { config?: { width?: number; height?: number } };
   const w = s.config?.width ?? 21;
   const hgt = s.config?.height ?? 15;
