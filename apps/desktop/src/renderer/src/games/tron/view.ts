@@ -1,13 +1,12 @@
-// MountGameView для «Трона»: рендерер + повороты стрелками/WASD.
+// MountGameView для «Трона»: рендерер + повороты стрелками/WASD (только по нажатию).
 import type { MountGameView } from '../types';
-import { ARROWS, createKeyInput, WASD } from '../maze/input';
+import { createTurnInput } from './input';
 import { TronRenderer } from './renderer';
 import { isTronState, type TronInput } from './types';
 
 export const mountTronView: MountGameView = (canvas, { you, names, match, onInput }) => {
   const renderer = new TronRenderer(canvas, { you, names, match });
-  // null (клавиши отпущены) core игнорирует: мотоцикл едет, пока не повернёшь.
-  const input = createKeyInput({ ...WASD, ...ARROWS }, (dir) => {
+  const input = createTurnInput((dir) => {
     const msg: TronInput = { dir };
     onInput(msg);
   });
