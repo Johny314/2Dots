@@ -105,10 +105,12 @@ test('два экземпляра: создать → присоединитьс
       }
       if (matchOver) break;
 
-      // «Ещё раз» = сразу готов: у хоста в лобби он уже готов, соперник — ещё нет.
+      // «Ещё раз» = сразу готов: хост ждёт на экране итога, гость видит, что хост готов.
       await hw.getByTestId('again').click();
-      await expect(screen(hw, 'lobby')).toBeVisible();
-      await expect(hw.getByTestId('ready-p1')).toHaveText('Готов');
+      await expect(screen(hw, 'result')).toBeVisible();
+      await expect(hw.getByTestId('rematch-p1')).toContainText('готов');
+      await expect(gw.getByTestId('rematch-p1')).toContainText('готов');
+      await expect(gw.getByTestId('rematch-hint')).toContainText('хочет сыграть ещё');
       await gw.getByTestId('again').click();
       round++;
       expect(round).toBeLessThanOrEqual(5);
@@ -121,11 +123,10 @@ test('два экземпляра: создать → присоединитьс
     await shot(hw, 'phase2-match', 800);
 
     // Новый матч, и гость пропадает посреди раунда → у хоста лобби с сообщением.
-    // Первое «Новый матч» обнуляет счёт в лобби, и HUD первого раунда начинает с 0:0.
+    // Первое «Новый матч» обнуляет счёт матча, и HUD первого раунда начинает с 0:0.
     await setAutoplay(hw, false);
     await hw.getByTestId('again').click();
-    await expect(screen(hw, 'lobby')).toBeVisible();
-    await expect(hw.getByTestId('lobby-match')).toHaveAttribute('aria-label', 'Счёт матча 0:0');
+    await expect(gw.getByTestId('rematch-p1')).toContainText('готов');
     await gw.getByTestId('again').click();
     await waitGame(hw);
     await waitGame(gw);

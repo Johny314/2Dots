@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DELTA, DIRS, OPPOSITE, WALL, canMove, makePlayer, startCell } from '../maze';
+import {
+  DELTA,
+  DIRS,
+  LATE_TURN_WINDOW,
+  OPPOSITE,
+  WALL,
+  canMove,
+  makePlayer,
+  startCell,
+} from '../maze';
 import type { Dir, Maze, MazePlayer } from '../maze';
 import {
   MIN_PLATE_DISTANCE,
@@ -105,7 +114,7 @@ function stepToward(maze: Maze, from: number, target: number, closed: Set<number
  */
 function botDir(s: KeysState, id: 'p1' | 'p2', cache: Map<string, Dir | null>): Dir | null {
   const me: MazePlayer = s.players[id];
-  const [dx, dy] = me.moveProgress > 0 && me.dir ? DELTA[me.dir] : [0, 0];
+  const [dx, dy] = me.moveProgress > LATE_TURN_WINDOW && me.dir ? DELTA[me.dir] : [0, 0];
   const cell = (me.y + dy) * s.maze.width + me.x + dx;
   const key = `${cell}|${s.doors.map((d) => (d.open ? 1 : 0)).join('')}`;
   const cached = cache.get(key);

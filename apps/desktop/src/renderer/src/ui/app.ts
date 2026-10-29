@@ -48,6 +48,8 @@ interface Session {
   lobby: LobbyMsg | null;
   /** Игра текущего (последнего) раунда — из start. */
   gameId: string | null;
+  /** Мы сами вышли из раунда в лобби — aborted от сервера ожидаем, сообщение не нужно. */
+  leftRound: boolean;
   closed: boolean;
   offs: (() => void)[];
 }
@@ -152,6 +154,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       you: null,
       lobby: null,
       gameId: null,
+      leftRound: false,
       closed: false,
       offs: [],
     };
@@ -188,9 +191,18 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
           if (live() && refs.game === game) showResult(s, msg);
         }, wait);
       }),
-      client.on('aborted', () => {
+      client.on('aborted', (msg) => {
         if (!live()) return;
-        showLobby(s, `${OPPONENT_LEFT} — раунд не засчитан`);
+        if (msg.reason === 'left' && s.leftRound) {
+          s.leftRound = false;
+          return;
+        }
+        showLobby(
+          s,
+          msg.reason === 'left'
+            ? 'Соперник вышел в лобби — раунд не засчитан'
+            : `${OPPONENT_LEFT} — раунд не засчитан`,
+        );
       }),
       client.on('error', (msg) => {
         if (!live()) return;
@@ -340,6 +352,7 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
         if (opponentHere && !hadOpponent) refs.lobby?.setNotice(null);
         break;
       case 'result':
+        refs.result?.setPlayers(msg.players);
         // Соперник ушёл после конца раунда: aborted сервер не шлёт (раунд уже засчитан).
         if (hadOpponent && !opponentHere) refs.result?.setNotice(OPPONENT_LEFT);
         break;
@@ -374,10 +387,17 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       gameId: msg.gameId,
       you: s.you,
       countdownMs: msg.countdownMs,
+      caption: getGameModule(msg.gameId)?.countdownCaption?.(msg.seed, msg.config, s.you) ?? null,
       names: namesFrom(s.lobby?.players),
       match: s.lobby?.match ?? {},
       onInput: (input) => client.sendInput(input),
-      onLeave: goHome,
+      // Выход из раунда — в лобби, без отключения: сервер и соперник остаются.
+      onLeave: () => {
+        s.leftRound = true;
+        client.leaveRound();
+        if (s.lobby) s.lobby = withReady(s.lobby, () => false);
+        showLobby(s);
+      },
     });
     refs.game = screen;
     router.show(screen);
@@ -397,14 +417,35 @@ export function startApp(root: HTMLElement, deps: AppDeps): void {
       names: namesFrom(s.lobby?.players),
       match: msg.match,
       matchWinner: msg.matchWinner,
-      onAgain: () => {
-        // «Ещё раз» = сразу готов (сервер трактует rematch как ready: true).
-        client.rematch();
+      players: s.lobby?.players ?? [],
+      onAgain: (ready) => {
         const you = s.you;
-        if (s.lobby) s.lobby = withReady(s.lobby, (p) => (p.id === you ? true : p.ready));
+        // Соперник ушёл — ждать его на экране итога бессмысленно: в лобби, уже готовым.
+        if (s.lobby && !hasOpponent(s.lobby, you)) {
+          client.rematch();
+          s.lobby = withReady(s.lobby, (p) => (p.id === you ? true : p.ready));
+          showLobby(s, OPPONENT_LEFT);
+          return;
+        }
+        // «Ещё раз» = сразу готов (сервер трактует rematch как ready: true); остаёмся
+        // на экране итога и ждём соперника — раунд начнётся, когда готовы оба.
+        if (ready) client.rematch();
+        else client.setReady(false);
+        if (s.lobby) {
+          s.lobby = withReady(s.lobby, (p) => (p.id === you ? ready : p.ready));
+          refs.result?.setPlayers(s.lobby.players);
+        }
+      },
+      onLobby: () => {
+        const you = s.you;
+        if (s.lobby?.players.some((p) => p.id === you && p.ready)) {
+          client.setReady(false);
+          s.lobby = withReady(s.lobby, (p) => (p.id === you ? false : p.ready));
+        }
         showLobby(s, s.lobby && !hasOpponent(s.lobby, you) ? OPPONENT_LEFT : undefined);
       },
       onMenu: goHome,
+      confirmMenu: () => s.hosting && hasOpponent(s.lobby, s.you),
     });
     refs.result = screen;
     router.show(screen);

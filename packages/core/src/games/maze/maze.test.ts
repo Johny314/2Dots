@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LATE_TURN_WINDOW,
   WALL,
   bfsDistances,
   canMove,
@@ -16,6 +17,7 @@ import {
   type MazeState,
 } from './index';
 import { DELTA, DIRS, OPPOSITE } from './grid';
+import { makePlayer } from './movement';
 
 const DT = 1000 / mazeGame.tickHz;
 
@@ -30,6 +32,15 @@ function pathMaze(width: number, height: number, path: [number, number][]): Maze
     walls[by * width + bx] = (walls[by * width + bx] as number) & ~WALL[OPPOSITE[dir]];
   }
   return { width, height, walls };
+}
+
+/** Прорезает проход из (x, y) в направлении dir. */
+function addPassage(maze: Maze, x: number, y: number, dir: Dir): void {
+  const [dx, dy] = DELTA[dir];
+  const a = y * maze.width + x;
+  const b = (y + dy) * maze.width + x + dx;
+  maze.walls[a] = (maze.walls[a] as number) & ~WALL[dir];
+  maze.walls[b] = (maze.walls[b] as number) & ~WALL[OPPOSITE[dir]];
 }
 
 function openPassages(maze: Maze): number {
@@ -78,7 +89,7 @@ function bfsStep(maze: Maze, x: number, y: number, tx: number, ty: number): Dir 
  * на въезде в неё), — как человек, заранее нажимающий поворот.
  */
 function botDir(maze: Maze, me: MazePlayer, other: MazePlayer): Dir | null {
-  const [dx, dy] = me.moveProgress > 0 && me.dir ? DELTA[me.dir] : [0, 0];
+  const [dx, dy] = me.moveProgress > LATE_TURN_WINDOW && me.dir ? DELTA[me.dir] : [0, 0];
   const x = me.x + dx;
   const y = me.y + dy;
   return bfsStep(maze, x, y, other.x, other.y) ?? me.dir;
@@ -297,6 +308,47 @@ describe('mazeGame: движение', () => {
     runTicks(s, 60);
     expect([s.players.p1.x, s.players.p1.y]).toEqual([2, 2]);
     expect(s.players.p1.visited).toEqual([0, 1, 2, 7, 12]);
+  });
+
+  it('поздний поворот: нажатый сразу после перекрёстка срабатывает на нём', () => {
+    // Крест вокруг (1,1): из (0,1) едем вправо, вниз можно только из (1,1).
+    const maze = pathMaze(5, 5, [
+      [0, 1],
+      [1, 1],
+      [2, 1],
+      [3, 1],
+    ]);
+    addPassage(maze, 1, 1, 'down');
+    const s = stateWith(maze);
+    s.players.p1 = makePlayer(0, 1, 5);
+    mazeGame.applyInput(s, 'p1', { dir: 'right' });
+    runTicks(s, 5); // ≈ 1.17: (1,1) позади на 0.17 клетки
+    expect(s.players.p1).toMatchObject({ x: 1, y: 1, dir: 'right' });
+    expect(s.players.p1.moveProgress).toBeLessThanOrEqual(LATE_TURN_WINDOW);
+    mazeGame.applyInput(s, 'p1', { dir: 'down' });
+    expect(s.players.p1.moveProgress).toBe(0);
+    runTicks(s, 5);
+    expect(s.players.p1).toMatchObject({ x: 1, y: 2 });
+    expect(s.players.p1.visited).not.toContain(1 * 5 + 2);
+  });
+
+  it('поздний поворот не срабатывает, если точка отъехала дальше окна', () => {
+    const maze = pathMaze(5, 5, [
+      [0, 1],
+      [1, 1],
+      [2, 1],
+      [3, 1],
+    ]);
+    addPassage(maze, 1, 1, 'down');
+    const s = stateWith(maze);
+    s.players.p1 = makePlayer(0, 1, 5);
+    mazeGame.applyInput(s, 'p1', { dir: 'right' });
+    runTicks(s, 7); // ≈ 1.63
+    expect(s.players.p1.moveProgress).toBeGreaterThan(LATE_TURN_WINDOW);
+    mazeGame.applyInput(s, 'p1', { dir: 'down' });
+    runTicks(s, 30);
+    // Вниз больше некуда — едем до конца коридора.
+    expect(s.players.p1).toMatchObject({ x: 3, y: 1 });
   });
 
   it('visited без повторов, steps считает возвраты', () => {

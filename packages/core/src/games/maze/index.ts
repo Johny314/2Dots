@@ -1,17 +1,19 @@
 import type { MiniGame, PlayerId } from '../../minigame';
 import { generateMaze } from './generate';
 import { DIRS, bfsDistances, visibleCells } from './grid';
-import { advance, haveMet, makePlayer, startCell, substeps } from './movement';
+import { advance, haveMet, makePlayer, setQueued, startCell, substeps } from './movement';
 import type { Dir, Maze, MazeConfig, MazeInput, MazePlayer, MazeResult, MazeState } from './types';
 
 export * from './types';
 export { generateMaze } from './generate';
 export { DELTA, DIRS, OPPOSITE, bfsDistances, canMove, inBounds, visibleCells } from './grid';
 export {
+  LATE_TURN_WINDOW,
   MAX_SUBSTEP_CELLS,
   advance,
   haveMet,
   makePlayer,
+  setQueued,
   startCell,
   substeps,
   type Passable,
@@ -141,7 +143,7 @@ export const mazeGame: MiniGame<MazeConfig, MazeState, MazeInput, MazeResult> = 
 
   applyInput(state, player: PlayerId, input) {
     if (state.result) return;
-    state.players[player].queued = input.dir;
+    setQueued(state.maze, state.players[player], input.dir);
   },
 
   tick(state, dtMs) {

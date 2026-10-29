@@ -1195,3 +1195,125 @@ kbd {
   font-weight: 700;
   text-align: center;
 }
+
+/* ---------- лобби: компактная раскладка, чтобы влезать в невысокие окна ---------- */
+
+.lobby {
+  gap: 14px;
+  padding: 24px;
+}
+
+.lobby .heading {
+  font-size: 28px;
+}
+
+.lobby > .players,
+.lobby > .notice,
+.lobby > .lobby-panel {
+  width: min(880px, 100%);
+}
+
+.lobby .player-card {
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto;
+  padding: 12px 16px;
+}
+
+.lobby .ready-badge {
+  grid-column: auto;
+  justify-self: end;
+}
+
+.lobby-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  text-align: left;
+}
+
+.lobby .game-option {
+  min-height: 0;
+  padding: 10px 14px;
+  font-size: 16px;
+}
+
+.lobby .game-desc {
+  font-size: 12.5px;
+}
+
+.lobby .game-badge {
+  margin-top: 2px;
+}
+
+.lobby .setting {
+  padding: 8px 4px;
+}
+
+.lobby .settings {
+  padding-top: 12px;
+}
+
+.lobby .actions {
+  margin-top: 4px;
+}
+
+/* Широкое окно: выбор игры слева, настройки и счёт справа. */
+@media (min-width: 900px) {
+  .lobby-panel {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .lobby .settings {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .lobby-side {
+    justify-content: space-between;
+  }
+}
+
+/* ---------- подтверждение поверх страницы и готовность к реваншу ---------- */
+
+body > .overlay {
+  position: fixed;
+  z-index: 40;
+}
+
+.rematch {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.rematch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  font-size: 14px;
+}
+
+.rematch-name {
+  font-weight: 600;
+}
+
+.rematch-status {
+  color: var(--muted);
+}
+
+.rematch-chip.on {
+  border-color: color-mix(in srgb, var(--ok) 60%, transparent);
+}
+
+.rematch-chip.on .rematch-status {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.rematch-hint:empty {
+  display: none;
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getGame } from '../../registry';
 import { Rng } from '../../rng';
 import { DELTA, DIRS, OPPOSITE, bfsDistances, canMove } from '../maze/grid';
+import { LATE_TURN_WINDOW } from '../maze/movement';
 import { WALL, type Dir, type Maze, type MazePlayer } from '../maze/types';
 import {
   countOwned,
@@ -257,7 +258,7 @@ describe('territoryGame: конец раунда', () => {
 function greedyDir(s: TerritoryState, p: MazePlayer, mine: number): Dir | null {
   const { maze } = s;
   const me = { x: p.x, y: p.y };
-  if (p.dir && p.moveProgress > 0) {
+  if (p.dir && p.moveProgress > LATE_TURN_WINDOW) {
     me.x += DELTA[p.dir][0];
     me.y += DELTA[p.dir][1];
   }
@@ -297,7 +298,7 @@ describe('territoryGame: симуляция ботами', () => {
       while (!game.result(s) && guard++ < 10_000) {
         // Перепланируем раз за клетку (BFS дорогой), а не каждый тик.
         const g = s.players[greedy];
-        const key = `${g.x},${g.y},${g.dir},${g.moveProgress === 0}`;
+        const key = `${g.x},${g.y},${g.dir},${g.moveProgress > LATE_TURN_WINDOW}`;
         if (key !== planKey) {
           planKey = key;
           game.applyInput(s, greedy, { dir: greedyDir(s, g, greedy === 'p1' ? 1 : 2) });

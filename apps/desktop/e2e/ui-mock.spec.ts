@@ -52,13 +52,26 @@ test('мок: хост — главное → ожидание → лобби �
   await win.waitForTimeout(800); // анимация полос
   await shot(win, '06-result');
 
-  // «Ещё раз» = сразу готов: второй шаг «Готов» не нужен.
+  // «Ещё раз» = сразу готов; остаёмся на экране итога и видим, кто готов, а кого ждём.
   await win.getByTestId('again').click();
-  await expect(screen(win, 'lobby')).toBeVisible();
-  await expect(win.getByTestId('ready-p1')).toHaveText('Готов');
+  await expect(screen(win, 'result')).toBeVisible();
+  await expect(win.getByTestId('rematch-p1')).toContainText('готов');
+  await expect(win.getByTestId('again')).toContainText('Отменить');
+  await shot(win, '06b-result-rematch', 0);
+  // Соперник (мок) тоже готов — раунд начинается прямо с экрана итога.
+  await expect(screen(win, 'game')).toBeVisible({ timeout: 10_000 });
 
-  // Esc — выход в главное меню
+  // Выход из раунда — в лобби, соединение остаётся.
   await win.keyboard.press('Escape');
+  await expect(win.getByTestId('leave-confirm')).toBeVisible();
+  await win.keyboard.press('Enter');
+  await expect(screen(win, 'lobby')).toBeVisible();
+  await expect(win.getByTestId('player-p2')).toContainText('Соперник');
+
+  // Хост выходит в меню из лобби — подтверждение: игра закроется и для соперника.
+  await win.keyboard.press('Escape');
+  await expect(win.getByTestId('menu-confirm')).toBeVisible();
+  await win.keyboard.press('Enter');
   await expect(screen(win, 'home')).toBeVisible();
   await app.close();
 });

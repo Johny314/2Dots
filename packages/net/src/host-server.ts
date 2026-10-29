@@ -192,6 +192,17 @@ class HostServer {
     this.broadcastLobby();
   }
 
+  /** Игрок вышел из раунда в лобби: раунд не засчитан, оба остаются подключены. */
+  private onLeaveRound(): void {
+    if (this.phase !== 'countdown' && this.phase !== 'playing') return;
+    this.clearTimers();
+    this.round = null;
+    this.phase = 'lobby';
+    this.resetReady();
+    this.broadcast({ t: 'aborted', reason: 'left' });
+    this.broadcastLobby();
+  }
+
   // ---------- сообщения ----------
 
   private onMessage(player: PlayerId, msg: ClientMsg): void {
@@ -206,6 +217,9 @@ class HostServer {
         return;
       case 'rematch':
         this.setReady(player, true);
+        return;
+      case 'leave':
+        this.onLeaveRound();
         return;
       case 'select':
         this.onSelect(player, msg.gameId);

@@ -4,7 +4,7 @@
 import type { MiniGame, PlayerId } from '../../minigame';
 import { generateMaze } from '../maze/generate';
 import { DIRS } from '../maze/grid';
-import { advance, makePlayer, startCell, substeps } from '../maze/movement';
+import { advance, makePlayer, setQueued, startCell, substeps } from '../maze/movement';
 import type { Dir } from '../maze/types';
 import type {
   CellOwner,
@@ -140,7 +140,7 @@ export const territoryGame: MiniGame<
 
   applyInput(state, player, input) {
     if (state.result) return;
-    state.players[player].queued = input.dir;
+    setQueued(state.maze, state.players[player], input.dir);
   },
 
   tick(state, dtMs) {

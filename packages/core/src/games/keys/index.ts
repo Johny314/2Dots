@@ -3,7 +3,14 @@
 import type { MiniGame, PlayerId } from '../../minigame';
 import { generateMaze } from '../maze/generate';
 import { DELTA, DIRS, canMove } from '../maze/grid';
-import { advance, makePlayer, startCell, substeps, type Passable } from '../maze/movement';
+import {
+  advance,
+  makePlayer,
+  setQueued,
+  startCell,
+  substeps,
+  type Passable,
+} from '../maze/movement';
 import type { Dir, Maze, MazePlayer } from '../maze/types';
 import { closedEdges, edgeKey, neighbour, placeDoors } from './doors';
 import type { KeysConfig, KeysInput, KeysResult, KeysState } from './types';
@@ -132,7 +139,8 @@ export const keysGame: MiniGame<KeysConfig, KeysState, KeysInput, KeysResult> = 
 
   applyInput(state, player: PlayerId, input) {
     if (state.result) return;
-    state.players[player].queued = input.dir;
+    const passable = doorPassable(closedEdges(state.doors));
+    setQueued(state.maze, state.players[player], input.dir, passable);
   },
 
   tick(state, dtMs) {

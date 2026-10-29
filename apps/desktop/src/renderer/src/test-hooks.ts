@@ -17,7 +17,8 @@ function chaseDir(state: maze.MazeState, you: PlayerId): maze.Dir | null {
   const other = state.players[you === 'p1' ? 'p2' : 'p1'];
   let x = me.x;
   let y = me.y;
-  if (me.dir && me.moveProgress > 0) {
+  // Сразу за перекрёстком ещё действует «поздний поворот» — до конца окна планируем от текущей.
+  if (me.dir && me.moveProgress > maze.LATE_TURN_WINDOW) {
     const [dx, dy] = maze.DELTA[me.dir];
     x += dx;
     y += dy;

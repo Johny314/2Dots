@@ -58,6 +58,32 @@ function reverseIfOpposite(p: MazePlayer): void {
   p.moveProgress = 1 - p.moveProgress;
 }
 
+/**
+ * Окно «позднего поворота», в долях клетки: столько точка успевает проехать за перекрёсток,
+ * а поворот всё ещё засчитывается на нём (≈40 мс при 7 клетках/с).
+ */
+export const LATE_TURN_WINDOW = 0.3;
+
+/**
+ * Новый ввод игрока: удерживаемое направление. Если поворот нажат чуть позже перекрёстка
+ * (точка отъехала от центра не больше чем на LATE_TURN_WINDOW, а из покинутой клетки туда
+ * можно пройти), точка возвращается в центр и повернёт на этом перекрёстке.
+ */
+export function setQueued(
+  maze: Maze,
+  p: MazePlayer,
+  dir: Dir | null,
+  passable: Passable = canMove,
+): void {
+  const changed = dir !== p.queued;
+  p.queued = dir;
+  if (!changed || dir === null || p.dir === null) return;
+  if (dir === p.dir || dir === OPPOSITE[p.dir]) return;
+  if (p.moveProgress <= 0 || p.moveProgress > LATE_TURN_WINDOW) return;
+  if (!passable(maze, p.x, p.y, dir)) return;
+  p.moveProgress = 0;
+}
+
 /** Продвигает игрока на budget клеток. Повороты — в центре клетки, разворот — сразу. */
 export function advance(
   maze: Maze,

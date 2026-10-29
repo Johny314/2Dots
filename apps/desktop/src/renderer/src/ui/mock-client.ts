@@ -182,6 +182,14 @@ export class MockGameClient implements GameClient {
     this.setReady(true);
   }
 
+  leaveRound(): void {
+    if (!this.round && !this.countingDown) return;
+    this.stopRound();
+    for (const p of this.players) p.ready = false;
+    this.emit('aborted', { t: 'aborted', reason: 'left' });
+    this.emitLobby();
+  }
+
   disconnect(): void {
     this.stopAll();
     this._status = 'closed';
@@ -341,6 +349,10 @@ function winnerOf(result: unknown): PlayerId | null {
 function mockConfig(game: AnyMiniGame, config: unknown, roundMs: number): unknown {
   if (game.id === 'maze' || typeof config !== 'object' || config === null) return config;
   if (!('timeLimitMs' in config)) return config;
+  // «Прятки»: фора — треть короткого мок-раунда, иначе искатель не успеет выйти.
+  if ('headStartMs' in config) {
+    return { ...config, timeLimitMs: roundMs, headStartMs: Math.round(roundMs / 3) };
+  }
   return { ...config, timeLimitMs: roundMs };
 }
 

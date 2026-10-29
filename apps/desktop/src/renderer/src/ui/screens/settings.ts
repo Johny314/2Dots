@@ -22,7 +22,9 @@ export function settingsPanel(props: SettingsPanelProps): SettingsPanel {
   const el = h('div', { class: 'settings', testid: 'settings', hidden: true }, title, list);
 
   function update(gameId: string, config: unknown): void {
-    const toggles = getGameModule(gameId)?.settings ?? [];
+    const toggles = (getGameModule(gameId)?.settings ?? []).filter(
+      (t) => config === undefined || (t.visible?.(config) ?? true),
+    );
     if (toggles.length === 0 || config === undefined) {
       el.hidden = true;
       list.replaceChildren();

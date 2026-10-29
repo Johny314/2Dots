@@ -404,6 +404,34 @@ describe('обрыв соединения', () => {
     expect(end.match).toEqual({ p1: 0, p2: 1 });
   });
 
+  it('выход из раунда в лобби: aborted обоим, оба подключены, счёт матча сохраняется', async () => {
+    const { port } = await start();
+    const a = await join(port, 'A');
+    const b = await join(port, 'B');
+    await startRound(a, b);
+    await playRound(a, b);
+
+    const started = waitFor(b, 'start');
+    a.rematch();
+    b.rematch();
+    await started;
+
+    const abortedA = waitFor(a, 'aborted');
+    const abortedB = waitFor(b, 'aborted');
+    const lobby = waitFor(b, 'lobby', (m) => m.players.every((p) => !p.ready));
+    a.leaveRound();
+    expect(await abortedA).toEqual({ t: 'aborted', reason: 'left' });
+    expect(await abortedB).toEqual({ t: 'aborted', reason: 'left' });
+    const l = await lobby;
+    expect(l.players.map((p) => p.id)).toEqual(['p1', 'p2']);
+    expect(l.match).toEqual({ p1: 1, p2: 0 });
+
+    // Сервер жив: можно сразу сыграть снова.
+    await startRound(a, b);
+    const [end] = await playRound(a, b);
+    expect(end.match).toEqual({ p1: 2, p2: 0 });
+  });
+
   it('обрыв хоста в лобби освобождает p1', async () => {
     const { port } = await start();
     const a = await join(port, 'A');

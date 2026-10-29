@@ -1,3 +1,4 @@
+import { hideGame } from './games/hide';
 import { keysGame } from './games/keys';
 import { mazeGame } from './games/maze';
 import { territoryGame } from './games/territory';
@@ -10,6 +11,7 @@ export const GAMES: Readonly<Record<string, AnyMiniGame>> = {
   [territoryGame.id]: territoryGame as AnyMiniGame,
   [tronGame.id]: tronGame as AnyMiniGame,
   [keysGame.id]: keysGame as AnyMiniGame,
+  [hideGame.id]: hideGame as AnyMiniGame,
 };
 
 export const DEFAULT_GAME_ID = mazeGame.id;

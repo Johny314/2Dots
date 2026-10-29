@@ -14,7 +14,7 @@ import {
   type Outro,
   type Point,
 } from './outro';
-import { DELTA, speedAt, type TronStateView } from './types';
+import { DELTA, speedAt, type Dir, type TronStateView } from './types';
 
 const HUD_HEIGHT = 56;
 const PADDING = 20;
@@ -27,6 +27,13 @@ export interface TronRendererOptions {
   you: PlayerId | null;
   names: Record<PlayerId, string>;
   match: Record<PlayerId, number> | null;
+}
+
+interface Swing {
+  cell: number;
+  /** Где была голова (в клетках арены) в момент нажатия. */
+  from: Point;
+  fromFrac: number;
 }
 
 interface Layout {
@@ -65,6 +72,13 @@ export class TronRenderer {
   private readonly core = makeLayer();
   private layerKey = '';
   private painted = new Uint8Array(0);
+  /**
+   * Поворот, нажатый посреди шага: голова уже уехала прямо — плавно уводим её от того места
+   * в новое направление к концу шага, без скачка вбок.
+   */
+  private swing: Record<PlayerId, Swing | null> = { p1: null, p2: null };
+  /** Последнее нарисованное положение головы (в клетках арены). */
+  private lastHead: Record<PlayerId, Point | null> = { p1: null, p2: null };
   /** Порядок, в котором головы проходили клетки (для соединённых линий при пересборке). */
   private paths: Record<PlayerId, number[]> = { p1: [], p2: [] };
   private gridPath: Path2D | null = null;
@@ -93,7 +107,24 @@ export class TronRenderer {
       // Новый раунд: всё заново.
       this.outro = null;
       this.paths = { p1: [], p2: [] };
+      this.swing = { p1: null, p2: null };
+      this.lastHead = { p1: null, p2: null };
       this.layerKey = '';
+    }
+    const w0 = state.config.width;
+    for (const id of PLAYER_IDS) {
+      const p = state.players[id];
+      const cell = p.y * w0 + p.x;
+      const was = prev?.players[id];
+      const sameStep = was !== undefined && was.y * w0 + was.x === cell;
+      const planned = p.queue[0] ?? p.dir;
+      const wasPlanned = was ? (was.queue[0] ?? was.dir) : planned;
+      if (!sameStep) {
+        this.swing[id] = null;
+      } else if (planned !== wasPlanned && state.progress > 0) {
+        const from = this.lastHead[id];
+        this.swing[id] = from ? { cell, from, fromFrac: state.progress } : null;
+      }
     }
     this.cur = state;
     this.curAt = now;
@@ -206,14 +237,30 @@ export class TronRenderer {
       const p = state.players[id];
       if (outro && !headVisible(outro, id, now)) continue;
       const dir = state.result ? p.dir : (p.queue[0] ?? p.dir);
-      const [dx, dy] = DELTA[dir];
-      let f = state.result ? (p.alive ? 0 : 0.5) : frac;
-      // У края без сквозных краёв голова упирается в рамку; со сквозными — не вылезает за неё.
-      const nx = p.x + dx;
-      const ny = p.y + dy;
-      if (nx < 0 || ny < 0 || nx >= width || ny >= height) f = Math.min(f, 0.5);
+      const f = state.result ? (p.alive ? 0 : 0.5) : frac;
+      const ahead = (d: Dir): Point => {
+        const [dx, dy] = DELTA[d];
+        // У края без сквозных краёв голова упирается в рамку; со сквозными — не вылезает за неё.
+        const nx = p.x + dx;
+        const ny = p.y + dy;
+        const g = nx < 0 || ny < 0 || nx >= width || ny >= height ? Math.min(f, 0.5) : f;
+        return { x: p.x + 0.5 + dx * g, y: p.y + 0.5 + dy * g };
+      };
+      let at = ahead(dir);
+      const swing = this.swing[id];
+      if (!state.result && swing && swing.cell === p.y * width + p.x) {
+        // Плавный увод: в момент нажатия — там, где голова уже была, к концу шага — на новом пути.
+        const k = Math.min(
+          1,
+          Math.max(0, (f - swing.fromFrac) / Math.max(0.05, 1 - swing.fromFrac)),
+        );
+        const e = k * k * (3 - 2 * k);
+        const { from: s0 } = swing;
+        at = { x: s0.x + (at.x - s0.x) * e, y: s0.y + (at.y - s0.y) * e };
+      }
+      this.lastHead[id] = at;
       const from = toPx({ x: p.x + 0.5, y: p.y + 0.5 });
-      const head = toPx({ x: p.x + 0.5 + dx * f, y: p.y + 0.5 + dy * f });
+      const head = toPx(at);
       this.strokeTrail(ctx, id, from, head, cell, dpr);
       this.drawHead(head, cell, id, id === this.options.you && !outro, now);
     }

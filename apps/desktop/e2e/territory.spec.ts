@@ -53,7 +53,7 @@ test('мок: хост выбирает «Территорию», меняет �
 
     // Мок завершает раунд через ~4 с фиктивным результатом (только победитель).
     await expect(screen(win, 'result')).toBeVisible({ timeout: 15_000 });
-    await expect(win.getByTestId('result-headline')).toHaveText(/Победа!|Поражение/);
+    await expect(win.getByTestId('result-headline')).toHaveText(/Победа!|Поражение|Ничья/); // соперник в моке ходит случайно — ничья тоже бывает
     await win.waitForTimeout(500);
     await shot(win, 'territory-result');
   } finally {

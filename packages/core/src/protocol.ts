@@ -3,8 +3,10 @@ import { z } from 'zod';
 /**
  * 2 — настройки мини-игры в лобби (сообщение config, поле lobby.config).
  * 3 — мини-игры «Территория», «Трон», «Ключ и дверь»: старый клиент их не знает.
+ * 4 — leave: игрок прерывает раунд и возвращается в лобби, сервер продолжает работать
+ *     (aborted.reason = 'left'); мини-игра «Прятки».
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 // Переподключения нет: обрыв во время раунда → 'aborted' оставшемуся, раунд не засчитан,
 // слот освобождается, вернувшийся игрок подключается заново через hello.
@@ -25,6 +27,8 @@ export const ClientMsgSchema = z.discriminatedUnion('t', [
   /** input валидирует сама мини-игра через parseInput. */
   z.object({ t: z.literal('input'), seq: z.number().int().nonnegative(), input: z.unknown() }),
   z.object({ t: z.literal('rematch') }),
+  /** Прервать идущий раунд (отсчёт или игру) и вернуться в лобби, не отключаясь. */
+  z.object({ t: z.literal('leave') }),
 ]);
 export type ClientMsg = z.infer<typeof ClientMsgSchema>;
 
@@ -75,7 +79,8 @@ export const ServerMsgSchema = z.discriminatedUnion('t', [
     matchWinner: PlayerIdSchema.nullable(),
   }),
   /** Раунд прерван (игрок отключился) — оба возвращаются в лобби, раунд не засчитывается. */
-  z.object({ t: z.literal('aborted'), reason: z.enum(['disconnect']) }),
+  /** disconnect — соперник отключился; left — кто-то из игроков вышел из раунда в лобби. */
+  z.object({ t: z.literal('aborted'), reason: z.enum(['disconnect', 'left']) }),
   z.object({ t: z.literal('error'), code: ErrorCodeSchema, message: z.string() }),
 ]);
 export type ServerMsg = z.infer<typeof ServerMsgSchema>;

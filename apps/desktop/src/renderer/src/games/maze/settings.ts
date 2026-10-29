@@ -15,7 +15,7 @@ export const MAZE_SETTINGS: readonly SettingToggle[] = [
   {
     key: 'hotcold',
     title: 'Горячо-холодно',
-    description: 'Шкала и цвет экрана подсказывают, насколько близко соперник',
+    description: 'Ваша точка «пингует»: чем ближе соперник, тем чаще и горячее волны',
     isOn: (c) => cfg(c).hotCold === true,
     patch: (on) => ({ hotCold: on }),
   },

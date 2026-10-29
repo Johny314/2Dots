@@ -76,7 +76,11 @@ function chooseDir(state: maze.MazeState, you: PlayerId): maze.Dir | null {
   const me = state.players[you];
   const other = state.players[you === 'p1' ? 'p2' : 'p1'];
   let from: [number, number] = [me.x, me.y];
-  if (me.dir && me.moveProgress > 0 && canMove(state.maze, me.x, me.y, me.dir)) {
+  if (
+    me.dir &&
+    me.moveProgress > maze.LATE_TURN_WINDOW &&
+    canMove(state.maze, me.x, me.y, me.dir)
+  ) {
     const [dx, dy] = DELTA[me.dir];
     from = [me.x + dx, me.y + dy];
   }

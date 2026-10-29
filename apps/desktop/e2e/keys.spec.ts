@@ -84,7 +84,7 @@ test('ключ и дверь (мок): без тумана и с тремя дв
     await expect(win.getByTestId('result-team')).toBeVisible();
 
     // Вернуть настройки по умолчанию (они запоминаются для следующих запусков).
-    await win.getByTestId('again').click();
+    await win.getByTestId('result-lobby').click();
     await expect(screen(win, 'lobby')).toBeVisible();
     await setToggle(win, 'fog', true);
     await setToggle(win, 'doors', false);

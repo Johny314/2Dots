@@ -1,7 +1,7 @@
 import { GAMES, getGame, MATCH_WINS, PLAYER_IDS, type PlayerId, type ServerMsg } from '@2dots/core';
 import { h } from '../dom';
 import type { Screen } from '../router';
-import { button, matchScore, playerDot, setButtonLabel } from './common';
+import { button, confirmDialog, matchScore, playerDot, setButtonLabel } from './common';
 import { settingsPanel } from './settings';
 
 type LobbyMsg = Extract<ServerMsg, { t: 'lobby' }>;
@@ -38,11 +38,25 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
     hint: 'Enter',
     onClick: () => toggleReady(),
   });
+  // Хост закрывает игру и для соперника — спрашиваем, если соперник уже здесь.
+  const leaveConfirm = confirmDialog(document.body, {
+    title: 'Закрыть игру?',
+    text: 'Вы — хост: игра закроется, и соперник отключится.',
+    yes: 'Закрыть',
+    no: 'Остаться',
+    onYes: props.onLeave,
+    testid: 'menu-confirm',
+  });
+  const leave = () => {
+    const opponentHere = lobby.players.some((p) => p.id !== props.you && p.connected);
+    if (isHost && opponentHere) leaveConfirm.open();
+    else props.onLeave();
+  };
   const leaveBtn = button('Выйти', {
     testid: 'lobby-leave',
     variant: 'ghost',
     hint: 'Esc',
-    onClick: props.onLeave,
+    onClick: leave,
   });
   const readyHint = h('p', { class: 'muted small' });
   const settings = settingsPanel({ isHost, onChange: props.onConfig });
@@ -142,11 +156,14 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
     players,
     h(
       'section',
-      { class: 'panel stack' },
-      h('h3', { class: 'subheading' }, isHost ? 'Мини-игра' : 'Мини-игра (выбирает хост)'),
-      games,
-      settings.el,
-      score,
+      { class: 'panel lobby-panel' },
+      h(
+        'div',
+        { class: 'lobby-games stack' },
+        h('h3', { class: 'subheading' }, isHost ? 'Мини-игра' : 'Мини-игра (выбирает хост)'),
+        games,
+      ),
+      h('div', { class: 'lobby-side stack' }, settings.el, score),
     ),
     h('div', { class: 'actions actions-row' }, leaveBtn, readyBtn),
     readyHint,
@@ -156,8 +173,9 @@ export function lobbyScreen(props: LobbyProps, initial: LobbyMsg): LobbyScreen {
   return {
     id: 'lobby',
     el,
-    enter: toggleReady,
-    escape: props.onLeave,
+    enter: () => (leaveConfirm.isOpen ? props.onLeave() : toggleReady()),
+    escape: () => (leaveConfirm.isOpen ? leaveConfirm.close() : leave()),
+    destroy: leaveConfirm.close,
     mounted: () => readyBtn.focus(),
     update: (next) => {
       lobby = next;

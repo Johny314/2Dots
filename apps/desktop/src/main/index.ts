@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import electronUpdater from 'electron-updater';
 import { join } from 'node:path';
 import { IPC, RELEASES_URL, type UpdateStatus } from '../shared/api';
@@ -31,9 +31,11 @@ const updater = new Updater({
 // Важно: без requestSingleInstanceLock — для тестов запускаются два экземпляра.
 
 function createWindow(): void {
+  // На Windows с масштабом 125–150 % рабочая область бывает ниже 800 px — не вылезаем за неё.
+  const work = screen.getPrimaryDisplay().workAreaSize;
   const win = new BrowserWindow({
-    width: 1100,
-    height: 800,
+    width: Math.min(1100, work.width),
+    height: Math.min(800, work.height),
     minWidth: 720,
     minHeight: 560,
     title: '2Dots',

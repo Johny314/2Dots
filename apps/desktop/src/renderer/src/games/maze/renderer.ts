@@ -1,5 +1,5 @@
 // Canvas 2D рендерер лабиринта: стены, точки со свечением, след, туман войны, HUD,
-// индикатор «Горячо-холодно» и анимация встречи.
+// индикатор «Горячо-холодно» («пинг» своей точки и шкала) и анимация встречи.
 import { maze as mazeCore, PLAYER_IDS, type PlayerId } from '@2dots/core';
 import type { maze } from '@2dots/core';
 import { HeatTracker, heatColor, heatWord, type HeatReading } from './heat';
@@ -38,11 +38,40 @@ export interface MazeRendererOptions {
   match: Record<PlayerId, number> | null;
   /** Рисовать туман войны (если в конфиге fogRadius !== null). */
   fog: boolean;
+  /** Дорисовка мини-игры на базе лабиринта («Прятки»). */
+  decorate?: MazeDecorator;
+  /** Полоса под полем для подписи мини-игры, px. */
+  footerHeight?: number;
 }
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
+}
+
+export interface DecorateApi {
+  ctx: CanvasRenderingContext2D;
+  /** Размер клетки и левый верхний угол поля, css px. */
+  cell: number;
+  ox: number;
+  oy: number;
+  /** Центр клетки (дробные координаты) в css px. */
+  center(p: Point): Point;
+  /** Видимые сейчас клетки (туман); null — тумана нет. */
+  visible: ReadonlySet<number> | null;
+  /** Размер холста, css px. */
+  width: number;
+  height: number;
+  now: number;
+  /** Идёт финальная анимация. */
+  outro: boolean;
+}
+
+export interface MazeDecorator {
+  /** Поверх тумана, под точками. */
+  board?(api: DecorateApi): void;
+  /** Поверх всего, включая HUD. */
+  overlay?(api: DecorateApi): void;
 }
 
 function playerPos(p: MazePlayer): Point {
@@ -200,7 +229,7 @@ export class MazeRenderer {
     const { width, height } = state.maze;
     const top = HUD_HEIGHT + (state.config.hotCold && this.options.you ? HEAT_HEIGHT : 0);
     const availW = this.cssW - PADDING * 2;
-    const availH = this.cssH - top - PADDING * 2;
+    const availH = this.cssH - top - PADDING * 2 - (this.options.footerHeight ?? 0);
     const cell = Math.max(4, Math.floor(Math.min(availW / width, availH / height)));
     const ox = Math.round((this.cssW - cell * width) / 2);
     const oy = Math.round(top + PADDING + (availH - cell * height) / 2);
@@ -309,6 +338,20 @@ export class MazeRenderer {
       ctx.globalAlpha = 1;
     }
 
+    const api: DecorateApi = {
+      ctx,
+      cell,
+      ox,
+      oy,
+      center,
+      visible,
+      width: this.cssW,
+      height: this.cssH,
+      now,
+      outro: outro !== null,
+    };
+    this.options.decorate?.board?.(api);
+
     // Точки. Соперник виден, только если он в видимой зоне.
     const together = outro !== null && merged(outro, now);
     for (const id of PLAYER_IDS) {
@@ -318,10 +361,12 @@ export class MazeRenderer {
         const cells = occupiedCells(state, state.players[id]);
         if (!cells.some((i) => visible.has(i))) continue;
       }
-      this.drawDot(center(pos[id]), cell, COLORS[id], id === this.options.you && !outro, now);
+      const mine = id === this.options.you && !outro;
+      const heat = mine && this.heat ? this.heatShown : null;
+      this.drawDot(center(pos[id]), cell, COLORS[id], mine, now, heat);
     }
 
-    if (this.heat && !outro) this.drawHeat(this.heat, now);
+    if (this.heat && !outro) this.drawHeat(this.heat);
     if (outro) {
       drawOutroEffects(outro, now, {
         ctx,
@@ -334,31 +379,14 @@ export class MazeRenderer {
     }
 
     this.drawHud(state);
+    this.options.decorate?.overlay?.(api);
   }
 
-  /** «Горячо-холодно»: цветная виньетка по краям и шкала с подписью под HUD. */
-  private drawHeat(reading: HeatReading, now: number): void {
+  /** «Горячо-холодно»: шкала с подписью под HUD (сама точка «пингует» — см. drawDot). */
+  private drawHeat(reading: HeatReading): void {
     const ctx = this.ctx;
     const heat = this.heatShown;
     const W = this.cssW;
-    const H = this.cssH;
-
-    // Виньетка: чем горячее, тем ярче и чаще пульсирует.
-    const freq = 0.6 + heat * 2.4;
-    const pulse = heat > 0.6 ? 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2 * freq) : 0.5;
-    const alpha = 0.06 + 0.3 * heat * (0.7 + 0.3 * pulse);
-    const g = ctx.createRadialGradient(
-      W / 2,
-      H / 2,
-      Math.min(W, H) * 0.35,
-      W / 2,
-      H / 2,
-      Math.max(W, H) * 0.75,
-    );
-    g.addColorStop(0, heatColor(heat, 0));
-    g.addColorStop(1, heatColor(heat, alpha));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
 
     // Шкала.
     const barW = Math.min(320, W * 0.42);
@@ -397,10 +425,22 @@ export class MazeRenderer {
     ctx.restore();
   }
 
-  private drawDot(c: Point, cell: number, color: string, pulse: boolean, now: number): void {
+  /**
+   * Точка игрока. heat (0..1, только своя точка в режиме «Горячо-холодно») — вокруг точки
+   * ореол цвета «температуры» и расходящиеся волны: чем ближе соперник, тем они чаще и шире.
+   */
+  private drawDot(
+    c: Point,
+    cell: number,
+    color: string,
+    pulse: boolean,
+    now: number,
+    heat: number | null = null,
+  ): void {
     const ctx = this.ctx;
     const r = cell * 0.3;
     ctx.save();
+    if (heat !== null) this.drawHeatPing(c, r, heat, now);
     ctx.shadowColor = color;
     ctx.shadowBlur = cell * 0.9;
     ctx.fillStyle = color;
@@ -412,13 +452,41 @@ export class MazeRenderer {
     ctx.beginPath();
     ctx.arc(c.x - r * 0.25, c.y - r * 0.25, r * 0.35, 0, Math.PI * 2);
     ctx.fill();
-    if (pulse) {
+    if (pulse && heat === null) {
       const k = (now % 1200) / 1200;
       ctx.strokeStyle = color;
       ctx.globalAlpha = 0.5 * (1 - k);
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(c.x, c.y, r * (1 + k * 0.9), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** «Пинг» своей точки: ореол и волны цвета от синего (холодно) до красного (горячо). */
+  private drawHeatPing(c: Point, r: number, heat: number, now: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    const halo = ctx.createRadialGradient(c.x, c.y, r * 0.8, c.x, c.y, r * (2 + heat));
+    halo.addColorStop(0, heatColor(heat, 0.55 + 0.3 * heat));
+    halo.addColorStop(1, heatColor(heat, 0));
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * (2 + heat), 0, Math.PI * 2);
+    ctx.fill();
+
+    // Период волны: ~1,6 с вдали → ~0,35 с вплотную; одновременно до трёх волн.
+    const period = 1600 - 1250 * heat;
+    const reach = r * (2.5 + 3.5 * heat);
+    ctx.strokeStyle = heatColor(heat);
+    for (let i = 0; i < 3; i++) {
+      const k = ((now + (period * i) / 3) % period) / period;
+      if (i > 0 && heat < 0.4) break;
+      ctx.globalAlpha = (0.35 + 0.5 * heat) * (1 - k);
+      ctx.lineWidth = 1.5 + 2 * heat * (1 - k);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r + (reach - r) * k, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();

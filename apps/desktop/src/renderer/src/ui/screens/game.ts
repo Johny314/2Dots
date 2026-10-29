@@ -3,12 +3,14 @@ import { getGameModule } from '../../games';
 import type { GameView } from '../../games/types';
 import { errorMessage, h } from '../dom';
 import type { Screen } from '../router';
-import { button, matchScore, playerDot, type Names } from './common';
+import { confirmDialog, matchScore, playerDot, type Names } from './common';
 
 export interface GameProps {
   gameId: string;
   you: PlayerId;
   countdownMs: number;
+  /** Подпись на отсчёте; по умолчанию — название игры. */
+  caption?: string | null;
   names: Names;
   match: Partial<Record<PlayerId, number>>;
   onInput(input: unknown): void;
@@ -86,7 +88,7 @@ export function gameScreen(props: GameProps): GameScreen {
       role: 'status',
       'aria-live': 'assertive',
     },
-    h('p', { class: 'countdown-caption' }, title),
+    h('p', { class: 'countdown-caption', testid: 'countdown-caption' }, props.caption ?? title),
     countNum,
   );
   let countTimer: ReturnType<typeof setInterval> | null = null;
@@ -117,49 +119,14 @@ export function gameScreen(props: GameProps): GameScreen {
   }
 
   // ---------- подтверждение выхода ----------
-  let confirmEl: HTMLElement | null = null;
-  const closeConfirm = () => {
-    confirmEl?.remove();
-    confirmEl = null;
-  };
-  const openConfirm = () => {
-    if (confirmEl) return;
-    const stay = button('Продолжить', {
-      testid: 'leave-cancel',
-      variant: 'ghost',
-      hint: 'Esc',
-      onClick: closeConfirm,
-    });
-    confirmEl = h(
-      'div',
-      {
-        class: 'overlay confirm',
-        role: 'dialog',
-        'aria-modal': 'true',
-        'aria-labelledby': 'leave-title',
-        testid: 'leave-confirm',
-      },
-      h(
-        'div',
-        { class: 'panel stack dialog' },
-        h('h3', { id: 'leave-title', class: 'subheading' }, 'Выйти из игры?'),
-        h('p', { class: 'muted' }, 'Раунд прервётся и не будет засчитан.'),
-        h(
-          'div',
-          { class: 'actions actions-row' },
-          stay,
-          button('Выйти', {
-            testid: 'leave-confirm-yes',
-            variant: 'danger',
-            hint: 'Enter',
-            onClick: props.onLeave,
-          }),
-        ),
-      ),
-    );
-    stage.append(confirmEl);
-    stay.focus();
-  };
+  const leave = confirmDialog(stage, {
+    title: 'Выйти в лобби?',
+    text: 'Раунд прервётся и не будет засчитан. Оба вернётесь в лобби — можно выбрать другую игру.',
+    yes: 'В лобби',
+    no: 'Продолжить',
+    onYes: props.onLeave,
+    testid: 'leave-confirm',
+  });
 
   // Рендерер рисует имена и счёт сам (HUD на canvas); DOM-шапка — только для заглушки.
   const el = h('main', { class: view ? 'game no-hud' : 'game' }, view ? null : hud, stage);
@@ -169,9 +136,9 @@ export function gameScreen(props: GameProps): GameScreen {
     id: 'game',
     el,
     enter: () => {
-      if (confirmEl) props.onLeave();
+      if (leave.isOpen) props.onLeave();
     },
-    escape: () => (confirmEl ? closeConfirm() : openConfirm()),
+    escape: () => (leave.isOpen ? leave.close() : leave.open()),
     update: (state) => {
       ticks += 1;
       if (view) {

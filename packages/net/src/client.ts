@@ -31,6 +31,8 @@ export interface GameClient {
   /** seq проставляется внутри клиента. */
   sendInput(input: unknown): void;
   rematch(): void;
+  /** Прервать идущий раунд и вернуться в лобби (соединение остаётся). */
+  leaveRound(): void;
   disconnect(): void;
   /** Возвращает функцию отписки. */
   on<K extends keyof GameClientEvents>(

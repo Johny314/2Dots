@@ -134,6 +134,9 @@ export function createGameClient(): GameClient {
     rematch() {
       send({ t: 'rematch' });
     },
+    leaveRound() {
+      send({ t: 'leave' });
+    },
 
     disconnect() {
       const ws = socket;

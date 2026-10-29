@@ -29,7 +29,9 @@ const HUD_HEIGHT = 56;
 const BAR_HEIGHT = 34;
 const PADDING = 20;
 /** Прозрачность заливки своих клеток. */
-const CELL_ALPHA = 0.35;
+const CELL_ALPHA = 0.32;
+/** Стены светлее, чем в «Лабиринте»: на цветных клетках тёмно-синие сливаются с заливкой. */
+const WALL_COLOR = '#c3c7ef';
 const FONT = '-apple-system, "Segoe UI", system-ui, sans-serif';
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
@@ -275,10 +277,16 @@ export class TerritoryRenderer {
     }
     ctx.globalAlpha = 1;
 
-    // Стены.
-    ctx.strokeStyle = COLORS.wall;
+    // Стены: тёмная подложка и светлая сердцевина — видны на любой заливке.
+    const walls = this.getWallsPath(state.seed, state.maze, cell, ox, oy);
+    ctx.lineCap = 'square';
+    ctx.strokeStyle = COLORS.bg;
+    ctx.lineWidth = Math.max(4, cell * 0.24);
+    ctx.stroke(walls);
+    ctx.strokeStyle = WALL_COLOR;
     ctx.lineWidth = Math.max(2, cell * 0.1);
-    ctx.stroke(this.getWallsPath(state.seed, state.maze, cell, ox, oy));
+    ctx.stroke(walls);
+    ctx.lineCap = 'butt';
 
     // Туман поверх: видимое ярко, своя территория тускло, остальное темно.
     if (visible && lift < 1) {

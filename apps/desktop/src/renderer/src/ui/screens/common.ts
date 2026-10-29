@@ -50,3 +50,72 @@ export function matchScore(match: Partial<Record<PlayerId, number>>, testid: str
     h('span', { class: 'p2-text' }, String(match.p2 ?? 0)),
   );
 }
+
+export interface ConfirmOptions {
+  title: string;
+  text: string;
+  /** Подпись кнопки «да» (danger, Enter). */
+  yes: string;
+  /** Подпись кнопки «нет» (ghost, Esc). */
+  no: string;
+  onYes(): void;
+  /** Префикс data-testid: <testid>, <testid>-yes, <testid>-no. */
+  testid: string;
+}
+
+export interface ConfirmDialog {
+  readonly isOpen: boolean;
+  open(): void;
+  close(): void;
+}
+
+/** Модальное подтверждение поверх host: Enter — да, Esc — нет (Esc обрабатывает экран). */
+export function confirmDialog(host: HTMLElement, opts: ConfirmOptions): ConfirmDialog {
+  let el: HTMLElement | null = null;
+  const close = () => {
+    el?.remove();
+    el = null;
+  };
+  return {
+    get isOpen() {
+      return el !== null;
+    },
+    open() {
+      if (el) return;
+      const no = button(opts.no, {
+        testid: `${opts.testid}-no`,
+        variant: 'ghost',
+        hint: 'Esc',
+        onClick: close,
+      });
+      const yes = button(opts.yes, {
+        testid: `${opts.testid}-yes`,
+        variant: 'danger',
+        hint: 'Enter',
+        onClick: opts.onYes,
+      });
+      const titleId = `${opts.testid}-title`;
+      el = h(
+        'div',
+        {
+          class: 'overlay confirm',
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-labelledby': titleId,
+          testid: opts.testid,
+        },
+        h(
+          'div',
+          { class: 'panel stack dialog' },
+          h('h3', { id: titleId, class: 'subheading' }, opts.title),
+          h('p', { class: 'muted' }, opts.text),
+          h('div', { class: 'actions actions-row' }, no, yes),
+        ),
+      );
+      host.append(el);
+      // Фокус на «да»: Enter у кнопки в фокусе нажимает её (как подсказывает Enter на ней).
+      yes.focus();
+    },
+    close,
+  };
+}

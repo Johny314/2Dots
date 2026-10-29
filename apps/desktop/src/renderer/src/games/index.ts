@@ -1,3 +1,4 @@
+import { hideModule } from './hide';
 import { keysModule } from './keys';
 import { mazeModule } from './maze';
 import { territoryModule } from './territory';
@@ -10,6 +11,7 @@ export const GAME_MODULES: Readonly<Record<string, GameModule>> = {
   territory: territoryModule,
   tron: tronModule,
   keys: keysModule,
+  hide: hideModule,
 };
 
 export function getGameModule(id: string): GameModule | undefined {

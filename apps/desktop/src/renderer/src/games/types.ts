@@ -50,6 +50,8 @@ export interface SettingToggle {
   isOn(config: unknown): boolean;
   /** Частичные настройки для GameClient.setConfig при переключении. */
   patch(on: boolean): Record<string, unknown>;
+  /** Показывать ли переключатель при данных настройках (по умолчанию — всегда). */
+  visible?(config: unknown): boolean;
 }
 
 export interface GameModule {
@@ -57,6 +59,8 @@ export interface GameModule {
   summarize(result: unknown): RoundSummary;
   /** Нет или пусто — панель настроек для игры не показывается. */
   settings?: readonly SettingToggle[];
+  /** Подпись на отсчёте 3‑2‑1 вместо названия игры (например, роль в «Прятках»). */
+  countdownCaption?(seed: number, config: unknown, you: PlayerId): string | null;
 }
 
 export const isObject = (v: unknown): v is Record<string, unknown> =>
